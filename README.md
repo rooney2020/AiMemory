@@ -42,6 +42,30 @@
 - 提供 Cursor 侧规则与 Skill 模板
 - 保留 Qt 前端原型与交互说明，便于继续收敛设计方向
 
+## 真实界面截图
+
+以下截图来自 AI Memory Qt 应用本体（非网页原型），用于展示当前可运行版本的真实界面。
+
+### 总览工作台
+
+![Qt 总览工作台](docs/screenshots/qt-overview.png)
+
+### 会话记录
+
+![Qt 会话记录](docs/screenshots/qt-sessions.png)
+
+### 资产管理
+
+![Qt 资产管理](docs/screenshots/qt-assets.png)
+
+### 实体图谱
+
+![Qt 实体图谱](docs/screenshots/qt-graph.png)
+
+### 融合搜索
+
+![Qt 融合搜索](docs/screenshots/qt-search.png)
+
 ## 快速开始
 
 ### 1. 安装后端
