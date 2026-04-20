@@ -48,23 +48,23 @@
 
 ### 总览工作台
 
-![Qt 总览工作台](docs/screenshots/qt-overview.png)
+![Qt 总览工作台](./docs/screenshots/qt-overview.png)
 
 ### 会话记录
 
-![Qt 会话记录](docs/screenshots/qt-sessions.png)
+![Qt 会话记录](./docs/screenshots/qt-sessions.png)
 
 ### 资产管理
 
-![Qt 资产管理](docs/screenshots/qt-assets.png)
+![Qt 资产管理](./docs/screenshots/qt-assets.png)
 
 ### 实体图谱
 
-![Qt 实体图谱](docs/screenshots/qt-graph.png)
+![Qt 实体图谱](./docs/screenshots/qt-graph.png)
 
 ### 融合搜索
 
-![Qt 融合搜索](docs/screenshots/qt-search.png)
+![Qt 融合搜索](./docs/screenshots/qt-search.png)
 
 ## 快速开始
 
