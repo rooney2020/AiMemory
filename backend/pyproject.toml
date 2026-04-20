@@ -1,0 +1,36 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ai-memory"
+version = "0.1.0"
+description = "AI Agent Long-Term Memory System with MCP Server"
+requires-python = ">=3.10"
+dependencies = [
+    "mcp>=1.0.0",
+    "pyyaml>=6.0",
+    "click>=8.0",
+]
+
+[project.optional-dependencies]
+vector = [
+    "sentence-transformers>=3.0.0",
+    "sqlite-vec>=0.1.0",
+    "numpy>=1.24.0",
+]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+]
+all = ["ai-memory[vector,dev]"]
+
+[project.scripts]
+ai-memory = "ai_memory.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ai_memory"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

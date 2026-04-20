@@ -1,0 +1,230 @@
+---
+description: AI Memory 操作规则，定义记录、检索、资产管理的行为规范
+alwaysApply: true
+---
+
+# AI Memory 操作规则
+
+## 核心原则
+
+1. **每轮对话后必须检查**：是否有需要保存到 AI Memory 的内容
+2. **先检索再操作**：复用资产、用户使用关键词时，先 `recall`
+3. **summary 是标签不是摘要**：简短（尽量控制在5-15字），如"AI Memory Qt 会话记录路径"
+
+**操作前先读取 Skill 文件获取命令格式：`/home/tsdl/.cursor/skills/ai-memory/SKILL.md`**
+
+CLI 路径：`python3 /home/tsdl/ssd/temp/projects/AI/AiMemory/backend/cli.py <子命令>`
+
+---
+
+## 术语映射
+
+| 英文类型 | 中文显示 | 用途 |
+|---|---|---|
+| `episodic` | 会话摘要 | 按主题聚合完整会话 |
+| `semantic` | 笔记 | 独立可复用的知识点 |
+| `procedural` | 偏好 | 用户明确说的规则 |
+
+**AI 输出时使用中文术语。**
+
+---
+
+## Summary 规范
+
+**错误示例**：
+- "实现了搜索高亮功能，包括导航按钮、关键词匹配..." ❌
+- "AI Memory 代码恢复问题：部分文件被意外恢复，需重新添加 tags 字段。后续大改动后应检查 git diff 确认修改完整。" ❌
+
+**正确示例**：
+- "AI Memory 搜索高亮实现" ✅
+- "AI Memory Qt grep 会话内容搜索" ✅
+- "JIRA-7819：输入法无法拉起问题解析" ✅
+
+**原则**：summary = 简短标签，详细内容放 content 字段。
+
+---
+
+## 会话摘要（episodic）写作标准
+
+**会话摘要必须达到分析报告级别**，不是简单的一两句话概述。
+
+### 内容要求
+- 问题描述/需求背景
+- 根因分析（技术分析类）或方案设计（开发类）
+- 关键日志/代码证据（使用 markdown 代码块）
+- 数据对比（使用 markdown 表格）
+- 修复方案或技术决策
+- 多话题拆分为独立记忆
+
+### 格式要求
+- 使用 Markdown 标题（##/###）分节
+- 使用表格展示对比数据
+- 使用代码块展示日志/代码片段
+- 使用有序/无序列表组织步骤
+
+### 篇幅参考
+- 技术分析类：500-2000+ 字符
+- 方案讨论类：400-1000+ 字符
+- 简单任务类（日报/安装）：300-500 字符
+
+---
+
+## 记忆粒度
+
+| 类型 | 粒度 | 示例 |
+|---|---|---|
+| 会话摘要 | 按主题聚合 | "AI Memory Qt 会话记录路径" |
+| 笔记 | 按知识点 | "jadx 工具及 Java 16 路径" |
+| 偏好 | 按规则 | "术语中文映射" |
+
+---
+
+## 记录时机
+
+**每轮对话结束时（AI回复结束前），都需要反思检索是否有内容需要记录。每轮对话不限制记录条数，如没有重要内容需要记录，可以不记录。如果有多类内容需要记录，则可以分类型分次记录。**
+
+| 触发条件 | 类型 | 重要性 |
+|---|---|---|
+| 用户说"不要xxx"/"以后用xxx" | procedural | high |
+| 完成功能开发/Bug修复，或确认了技术方案 | episodic | high |
+| 全局环境变量、应用启动方式、操作手顺等重要内容 | semantic | high |
+| 用户通过 feedback 提供关键信息 | 按内容判断 | normal~high |
+
+**必须在产生重要信息时立即保存，不要等到会话结束。** 因为会话随时可能中断。
+
+---
+
+## Entities 规则
+
+当记录重要记忆时，默认检查是否需要同步写入 `entities`。
+
+### 默认应抽取 entities 的场景
+
+- 技术方案讨论
+- Bug 根因分析
+- 模块或组件改造
+- 架构设计与数据流讨论
+- 与具体工具、项目、框架强相关的实现工作
+
+### 默认可不抽取 entities 的场景
+
+- 纯礼貌回复
+- 单纯确认“收到/可以/结束”
+- 无具体对象的泛泛流程说明
+
+### 抽取要求
+
+- 优先抽取 2 到 6 个稳定实体
+- 优先级：项目名、模块名、组件名、工具名、框架名、关键功能名
+- 去重、去空白、避免整句描述
+- `remember` 时如已识别实体，优先通过 `--entities` 一并传入
+- `update` 如需修正实体，使用 `--entities`；如需补充实体，使用 `--append-entities`
+
+### 图谱同步建议
+
+- 实体会影响图谱质量，不要把 `entities` 当成可有可无的装饰字段
+- 历史记忆如果长期缺实体，应分批补齐
+- 大批量补齐后，可以执行 `rebuild-graph` 做图谱重建
+
+---
+
+## 更新策略
+
+**同一主题用 `--append` 更新，不新建记录：**
+
+```bash
+python3 cli.py update --id <ID> --content "新内容" --append
+```
+
+**避免碎片化**：相关内容合并在同一条记录中。
+
+---
+
+## 检索规则
+
+**何时检索**：
+- 复用资产时 → `asset-lookup`
+- 用户使用关键词提到之前的事 → `recall`
+
+**何时不检索**：
+- 普通对话，无明确关键词
+- 用户没有提到需要回忆的内容
+
+---
+
+## 资产管理
+
+### 什么是资产
+
+| 是资产 | 不是资产 |
+|---|---|
+| 反编译 APK 产物（jadx 输出） | jadx 工具本身 |
+| 自己写的脚本/工具/应用 | 第三方工具 |
+| 项目代码 | 临时测试文件 |
+
+### 资产规则
+
+- **操作流程**：检测到资产时，应询问用户是否录入为资产，用户确认才能录入。创建前先 `asset-lookup`，确认后 `asset-register`
+
+---
+
+## 会话记录路径
+
+| 框架 | 路径 | 格式 |
+|---|---|---|
+| Cursor | `~/.cursor/projects/*/agent-transcripts/` | JSONL/TXT |
+| OpenClaw | `~/.openclaw/agents/*/sessions/` | JSONL |
+| Toder | `~/.config/Code/User/globalStorage/thundersoft.toder/tasks/` | JSON |
+| Copilot | `~/.config/Code/User/globalStorage/*/workspaceStorage/*/chatSessions/` | JSONL |
+
+---
+
+## 回复末尾标记
+
+每轮对话结束时标注记忆状态：
+
+- `📝 已记录：xxx（ID: yyy）` — 有新内容保存，**必须给出 ID**
+- `📝 无需记录` — 无重要内容
+- `📝 更新记录：xxx（ID: yyy）` — 追加到已有记录，**必须给出 ID**
+
+**禁止只写"📝 已记录"不给出 ID。禁止只标注，不实际调用**
+
+---
+
+## CLI 命令速查
+
+```bash
+CLI=~/ssd/temp/projects/AI/AiMemory/backend/cli.py
+
+python3 $CLI working
+python3 $CLI remember --type <episodic|semantic|procedural> --summary "简短标签" --content "详细内容" --tags "标签1,标签2"
+python3 $CLI recall --query "关键词" --tags "标签"
+python3 $CLI update --id <ID> --content "新内容" --append
+python3 $CLI update --id <ID> --entities "实体1,实体2"
+python3 $CLI update --id <ID> --entities "新增实体" --append-entities
+python3 $CLI update --id <ID> --tags "新标签" --append-tags
+python3 $CLI rebuild-graph --dry-run
+```
+
+---
+
+## 多 AI 助手适配
+
+虽然本文件用于 Cursor Rules，但其中的规则同样适合迁移到其他 AI 助手：
+
+- Cursor：直接使用本文件与 `SKILL.md`
+- Copilot：把这里的记录时机、摘要规范、entities 规则迁移到用户级或仓库级 instructions
+- 其他 Agent：把规则写进 system prompt 或工作流说明，再通过 CLI 执行具体命令
+
+**要求保持一致的部分**：
+
+- 会话开始先获取工作记忆
+- 记录重要信息时考虑 `entities`
+- 复用成果前先查资产
+- 批量补齐实体后必要时重建图谱
+
+---
+
+## 数据库路径
+
+- **默认**：`~/.local/share/ai-memory/db/memory.db`

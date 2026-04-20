@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Memory Qt Style Preview</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0b1220;
+      --surface: rgba(15, 23, 42, 0.92);
+      --surface-soft: rgba(20, 31, 52, 0.82);
+      --text: #ecf1fb;
+      --text-secondary: #97a8c0;
+      --line: rgba(134, 152, 179, 0.18);
+      --accent: #6366f1;
+      --accent-2: #3b82f6;
+      --radius-xl: 24px;
+      --radius-lg: 18px;
+      --shadow: 0 28px 80px rgba(2, 6, 23, 0.34);
+      --font-ui: "IBM Plex Sans", "Noto Sans SC", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background:
+        radial-gradient(circle at 12% 14%, rgba(99, 102, 241, 0.16), transparent 22%),
+        linear-gradient(180deg, #09111d, #0f172a);
+      color: var(--text);
+      font-family: var(--font-ui);
+    }
+
+    .page {
+      width: min(1360px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 28px 0 40px;
+      display: grid;
+      gap: 18px;
+    }
+
+    .hero,
+    .card {
+      border-radius: var(--radius-xl);
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(17, 24, 39, 0.94), rgba(15, 23, 42, 0.88));
+      box-shadow: var(--shadow);
+    }
+
+    .hero {
+      padding: 24px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .hero h1 {
+      margin: 0;
+      font-size: 34px;
+      line-height: 1.15;
+      letter-spacing: -0.03em;
+    }
+
+    .hero p {
+      margin: 0;
+      max-width: 860px;
+      color: var(--text-secondary);
+      line-height: 1.7;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .card {
+      padding: 18px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .card h2 {
+      margin: 0;
+      font-size: 22px;
+    }
+
+    .meta {
+      color: var(--text-secondary);
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    .swatches {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .swatch {
+      width: 56px;
+      height: 56px;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .pill,
+    .link-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      border: 1px solid var(--line);
+    }
+
+    .pill {
+      background: rgba(99, 102, 241, 0.12);
+      color: #c7d2fe;
+    }
+
+    .link-btn {
+      text-decoration: none;
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .preview {
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      border: 1px solid var(--line);
+      min-height: 240px;
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .preview iframe {
+      width: 100%;
+      height: 240px;
+      border: 0;
+      background: #ffffff;
+    }
+
+    @media (max-width: 980px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="hero">
+      <h1>AI Memory Qt 风格预览台</h1>
+      <p>这个页面专门用于后续风格决策。当前已保留原有“科技清爽情报台”版本，并新增“暗色专业情报台”作为当前主线。后续如果再换方向，可以继续把新风格挂到这里做横向浏览，不必反复口头描述。</p>
+      <div class="row">
+        <span class="pill">当前推荐：暗色专业情报台</span>
+        <span class="pill">当前保留：科技清爽情报台</span>
+      </div>
+    </section>
+
+    <section class="grid">
+      <article class="card">
+        <div class="row">
+          <span class="pill">当前主线</span>
+          <span class="pill">Dark Professional</span>
+        </div>
+        <h2>暗色专业情报台</h2>
+        <div class="meta">关键词：长期工作、专业秩序、暗色耐看、层级克制、适合高密度信息。最适合 AI Memory Qt 这种会话、图谱、资产、搜索并行存在的桌面情报工具。</div>
+        <div class="swatches">
+          <span class="swatch" style="background:#08111f"></span>
+          <span class="swatch" style="background:#0f172a"></span>
+          <span class="swatch" style="background:#4f46e5"></span>
+          <span class="swatch" style="background:#3b82f6"></span>
+        </div>
+        <div class="row">
+          <a class="link-btn" href="./dark-professional.html" target="_blank" rel="noreferrer">打开完整原型</a>
+        </div>
+        <div class="preview"><iframe src="./dark-professional.html" title="暗色专业情报台预览"></iframe></div>
+      </article>
+
+      <article class="card">
+        <div class="row">
+          <span class="pill">保留对照</span>
+          <span class="pill">Clean Tech</span>
+        </div>
+        <h2>科技清爽情报台</h2>
+        <div class="meta">关键词：青蓝渐变、玻璃感、轻快科技、视觉更亮。适合展示和轻阅读，但你已经明确表示这条路线不够满意，所以当前只作为对照稿保留。</div>
+        <div class="swatches">
+          <span class="swatch" style="background:#08101d"></span>
+          <span class="swatch" style="background:#5dc5ff"></span>
+          <span class="swatch" style="background:#34d2c8"></span>
+          <span class="swatch" style="background:#8b7dff"></span>
+        </div>
+        <div class="row">
+          <a class="link-btn" href="./index.html" target="_blank" rel="noreferrer">打开原始原型</a>
+        </div>
+        <div class="preview"><iframe src="./index.html" title="科技清爽情报台预览"></iframe></div>
+      </article>
+
+      <article class="card">
+        <div class="row">
+          <span class="pill">待选扩展</span>
+          <span class="pill">Swiss Research</span>
+        </div>
+        <h2>瑞士网格研究台</h2>
+        <div class="meta">关键词：严格网格、强秩序、版式理性、研究感。适合以后如果你希望整体更克制、更像知识研究工具，再单独做一版。</div>
+        <div class="swatches">
+          <span class="swatch" style="background:#ffffff"></span>
+          <span class="swatch" style="background:#f1f5f9"></span>
+          <span class="swatch" style="background:#111827"></span>
+          <span class="swatch" style="background:#dc2626"></span>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="row">
+          <span class="pill">待选扩展</span>
+          <span class="pill">Minimal Knowledge</span>
+        </div>
+        <h2>极简知识工作室</h2>
+        <div class="meta">关键词：轻白、安静、阅读优先、编辑舒适。适合记忆和搜索体验，但图谱页和资产页的掌控感会弱一些。</div>
+        <div class="swatches">
+          <span class="swatch" style="background:#ffffff"></span>
+          <span class="swatch" style="background:#f8fafc"></span>
+          <span class="swatch" style="background:#0f172a"></span>
+          <span class="swatch" style="background:#64748b"></span>
+        </div>
+      </article>
+    </section>
+  </div>
+</body>
+</html>

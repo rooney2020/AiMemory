@@ -1,0 +1,945 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Memory Qt Prototype - Dark Professional</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet" />
+  <!--
+    风格合同：暗色专业情报台
+    关键词：长期工作、信息密度、专业秩序、克制发光、严肃可靠
+    配色基线：Dark Mode Premium + Indigo Night
+    字体：IBM Plex Sans / Noto Sans SC / IBM Plex Mono
+  -->
+  <style>
+    :root {
+      --font-ui: "IBM Plex Sans", "Noto Sans SC", sans-serif;
+      --font-body: "Noto Sans SC", "PingFang SC", sans-serif;
+      --font-mono: "IBM Plex Mono", monospace;
+      --radius-2xl: 26px;
+      --radius-xl: 20px;
+      --radius-lg: 16px;
+      --radius-md: 12px;
+      --shadow-shell: 0 28px 80px rgba(2, 6, 23, 0.45);
+      --shadow-card: 0 20px 42px rgba(2, 6, 23, 0.22);
+      --nav-width: 108px;
+      --side-width: 324px;
+      --bg: #08111f;
+      --bg-secondary: #0c1728;
+      --surface: rgba(15, 23, 42, 0.92);
+      --surface-soft: rgba(20, 31, 52, 0.84);
+      --surface-strong: rgba(24, 38, 64, 0.96);
+      --surface-elevated: rgba(30, 46, 76, 0.95);
+      --text: #edf2fb;
+      --text-secondary: #9cafc8;
+      --text-tertiary: #6f84a2;
+      --line: rgba(138, 160, 190, 0.18);
+      --line-strong: rgba(138, 160, 190, 0.26);
+      --accent: #4f46e5;
+      --accent-2: #3b82f6;
+      --accent-soft: rgba(79, 70, 229, 0.18);
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --grid: rgba(118, 139, 173, 0.06);
+      --scrollbar-thumb: rgba(79, 70, 229, 0.68);
+      --scrollbar-track: rgba(138, 160, 190, 0.12);
+    }
+
+    body[data-mode="light"] {
+      --bg: #edf2f9;
+      --bg-secondary: #f6f8fc;
+      --surface: rgba(255, 255, 255, 0.94);
+      --surface-soft: rgba(247, 250, 255, 0.92);
+      --surface-strong: rgba(255, 255, 255, 0.98);
+      --surface-elevated: rgba(239, 244, 252, 0.98);
+      --text: #16253a;
+      --text-secondary: #5f738f;
+      --text-tertiary: #8597ae;
+      --line: rgba(112, 132, 164, 0.16);
+      --line-strong: rgba(112, 132, 164, 0.24);
+      --accent: #4338ca;
+      --accent-2: #2563eb;
+      --accent-soft: rgba(67, 56, 202, 0.08);
+      --grid: rgba(67, 56, 202, 0.05);
+      --shadow-shell: 0 28px 70px rgba(30, 41, 59, 0.12);
+      --shadow-card: 0 16px 34px rgba(30, 41, 59, 0.08);
+      --scrollbar-thumb: rgba(67, 56, 202, 0.56);
+      --scrollbar-track: rgba(112, 132, 164, 0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+      scrollbar-width: thin;
+      scrollbar-color: var(--scrollbar-thumb) transparent;
+    }
+
+    *::-webkit-scrollbar {
+      width: 12px;
+      height: 12px;
+    }
+
+    *::-webkit-scrollbar-track {
+      background: var(--scrollbar-track);
+      border-radius: 999px;
+    }
+
+    *::-webkit-scrollbar-thumb {
+      min-height: 34px;
+      border: 3px solid transparent;
+      border-radius: 999px;
+      background: linear-gradient(180deg, var(--accent), var(--accent-2));
+      background-clip: padding-box;
+    }
+
+    *::-webkit-scrollbar-corner {
+      background: transparent;
+    }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background:
+        radial-gradient(circle at 10% 12%, rgba(79, 70, 229, 0.14), transparent 28%),
+        radial-gradient(circle at 88% 12%, rgba(59, 130, 246, 0.12), transparent 22%),
+        linear-gradient(180deg, var(--bg) 0%, var(--bg-secondary) 100%);
+      color: var(--text);
+      font-family: var(--font-body);
+      overflow: hidden;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(var(--grid) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+      background-size: 32px 32px;
+      mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.6), transparent 95%);
+      pointer-events: none;
+    }
+
+    button { font: inherit; }
+
+    .shell {
+      display: grid;
+      grid-template-columns: var(--nav-width) 1fr;
+      height: 100vh;
+      gap: 18px;
+      padding: 18px;
+    }
+
+    .rail,
+    .topbar,
+    .surface {
+      border: 1px solid var(--line);
+      border-radius: var(--radius-2xl);
+      background: linear-gradient(180deg, var(--surface-strong), var(--surface));
+      box-shadow: var(--shadow-shell);
+      backdrop-filter: blur(18px);
+    }
+
+    .rail {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 18px 12px;
+    }
+
+    .brand {
+      display: grid;
+      place-items: center;
+      width: 54px;
+      height: 54px;
+      margin: 0 auto 10px;
+      border-radius: 18px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      color: #ffffff;
+      font-family: var(--font-ui);
+      font-weight: 700;
+      letter-spacing: 0.08em;
+    }
+
+    .nav-btn {
+      display: grid;
+      gap: 6px;
+      justify-items: center;
+      padding: 12px 8px;
+      border: 0;
+      border-radius: 18px;
+      background: transparent;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: 160ms ease;
+    }
+
+    .nav-btn:hover,
+    .nav-btn.active {
+      background: linear-gradient(180deg, var(--accent-soft), transparent);
+      color: var(--text);
+      box-shadow: inset 0 0 0 1px rgba(99, 102, 241, 0.2);
+    }
+
+    .nav-icon {
+      width: 34px;
+      height: 34px;
+      display: grid;
+      place-items: center;
+      border-radius: 12px;
+      background: var(--surface-soft);
+      border: 1px solid var(--line);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .nav-label {
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      gap: 18px;
+      min-width: 0;
+    }
+
+    .topbar {
+      display: grid;
+      grid-template-columns: 1.2fr auto;
+      align-items: center;
+      gap: 14px;
+      padding: 16px 18px;
+    }
+
+    .command {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 16px;
+      border-radius: 18px;
+      background: var(--surface-soft);
+      border: 1px solid var(--line);
+      cursor: pointer;
+    }
+
+    .kbd {
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: #c7d2fe;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    body[data-mode="light"] .kbd {
+      color: var(--accent);
+    }
+
+    .command-title {
+      font-family: var(--font-ui);
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .command-sub {
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .toggle,
+    .ghost,
+    .primary {
+      border: 0;
+      border-radius: 14px;
+      padding: 10px 14px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 700;
+      transition: 160ms ease;
+    }
+
+    .toggle,
+    .ghost {
+      background: var(--surface-soft);
+      color: var(--text);
+      border: 1px solid var(--line);
+    }
+
+    .primary {
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      color: #ffffff;
+      box-shadow: 0 16px 28px rgba(37, 99, 235, 0.24);
+    }
+
+    .surface {
+      overflow: hidden;
+    }
+
+    .screen {
+      display: none;
+      height: calc(100vh - 144px);
+      min-height: 0;
+    }
+
+    .screen.active { display: grid; }
+
+    .screen-grid {
+      display: grid;
+      grid-template-columns: 1fr var(--side-width);
+      min-height: 0;
+    }
+
+    .main {
+      padding: 22px;
+      overflow: auto;
+      display: grid;
+      gap: 18px;
+    }
+
+    .aside {
+      border-left: 1px solid var(--line);
+      padding: 22px 22px 22px 0;
+      overflow: auto;
+      display: grid;
+      gap: 14px;
+      align-content: start;
+    }
+
+    .hero,
+    .card,
+    .panel,
+    .stat,
+    .sheet,
+    .context {
+      border-radius: var(--radius-xl);
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, var(--surface-soft), rgba(255, 255, 255, 0.01));
+      box-shadow: var(--shadow-card);
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 18px;
+      padding: 22px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      width: fit-content;
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: #c7d2fe;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    body[data-mode="light"] .eyebrow {
+      color: var(--accent);
+    }
+
+    .hero h1 {
+      margin: 16px 0 12px;
+      font-family: var(--font-ui);
+      font-size: 34px;
+      line-height: 1.12;
+      letter-spacing: -0.03em;
+    }
+
+    .muted {
+      color: var(--text-secondary);
+      font-size: 14px;
+      line-height: 1.72;
+    }
+
+    .actions,
+    .pill-row,
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .pill,
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--text-secondary);
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .status.ok { color: #86efac; }
+    .status.warn { color: #fcd34d; }
+
+    .hero-side {
+      display: grid;
+      gap: 12px;
+      align-content: start;
+    }
+
+    .stat {
+      padding: 18px;
+      min-height: 108px;
+    }
+
+    .stat-label {
+      color: var(--text-secondary);
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .stat-value {
+      margin-top: 12px;
+      font-family: var(--font-ui);
+      font-size: 30px;
+      font-weight: 700;
+      letter-spacing: -0.04em;
+    }
+
+    .stat-sub {
+      margin-top: 6px;
+      color: var(--text-tertiary);
+      font-size: 12px;
+    }
+
+    .split {
+      display: grid;
+      grid-template-columns: 1.12fr 0.88fr;
+      gap: 18px;
+    }
+
+    .panel { padding: 18px; }
+
+    .panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .panel-title {
+      font-family: var(--font-ui);
+      font-size: 17px;
+      font-weight: 700;
+    }
+
+    .panel-sub {
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+
+    .list,
+    .timeline,
+    .stack {
+      display: grid;
+      gap: 12px;
+    }
+
+    .item,
+    .timeline-item,
+    .memory,
+    .session-card,
+    .asset {
+      padding: 14px 16px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .item h4,
+    .memory h4,
+    .session-card h4,
+    .asset h4,
+    .context h4 {
+      margin: 0;
+      font-family: var(--font-ui);
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 8px;
+      color: var(--text-tertiary);
+      font-size: 11px;
+      font-family: var(--font-mono);
+    }
+
+    .timeline-item {
+      display: grid;
+      grid-template-columns: 56px 1fr auto;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .context {
+      padding: 16px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .line {
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(148, 163, 184, 0.14);
+      overflow: hidden;
+    }
+
+    .line > span {
+      display: block;
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    }
+
+    .session-layout,
+    .memory-layout,
+    .assets-layout {
+      display: grid;
+      gap: 18px;
+      min-height: 0;
+      height: 100%;
+      padding: 22px;
+    }
+
+    .session-layout {
+      grid-template-columns: 340px minmax(0, 1fr) 300px;
+    }
+
+    .memory-layout {
+      grid-template-columns: 360px minmax(0, 1fr);
+    }
+
+    .assets-layout {
+      grid-template-columns: 1.1fr 0.9fr;
+    }
+
+    .column,
+    .transcript,
+    .workspace-card {
+      border-radius: var(--radius-xl);
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, var(--surface-soft), rgba(255, 255, 255, 0.01));
+      box-shadow: var(--shadow-card);
+      min-height: 0;
+      overflow: auto;
+    }
+
+    .column,
+    .workspace-card { padding: 18px; }
+
+    .transcript {
+      display: grid;
+      grid-template-rows: auto auto 1fr;
+      gap: 14px;
+      padding: 18px;
+    }
+
+    .search-box,
+    .field {
+      padding: 12px 14px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: var(--surface-elevated);
+      color: var(--text-secondary);
+    }
+
+    .message-list {
+      display: grid;
+      gap: 12px;
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    .bubble {
+      max-width: 88%;
+      padding: 14px 16px;
+      border-radius: 18px;
+      border: 1px solid var(--line-strong);
+      display: grid;
+      gap: 8px;
+    }
+
+    .bubble.user {
+      margin-left: auto;
+      background: linear-gradient(135deg, rgba(79, 70, 229, 0.26), rgba(37, 99, 235, 0.14));
+    }
+
+    .bubble.assistant {
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .bubble-head {
+      display: flex;
+      justify-content: space-between;
+      color: var(--text-secondary);
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .workspace-card.split-inner {
+      display: grid;
+      grid-template-columns: 1fr 220px;
+      gap: 18px;
+    }
+
+    .asset-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 34px;
+      transform: translateX(-50%) translateY(14px);
+      padding: 14px 18px;
+      border-radius: 16px;
+      background: rgba(15, 23, 42, 0.98);
+      border: 1px solid rgba(99, 102, 241, 0.35);
+      color: #eef2ff;
+      font-size: 13px;
+      font-weight: 700;
+      box-shadow: var(--shadow-shell);
+      opacity: 0;
+      pointer-events: none;
+      transition: 180ms ease;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    @media (max-width: 1380px) {
+      .hero,
+      .split,
+      .screen-grid,
+      .session-layout,
+      .memory-layout,
+      .assets-layout,
+      .workspace-card.split-inner,
+      .asset-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .aside {
+        border-left: 0;
+        border-top: 1px solid var(--line);
+        padding-left: 22px;
+      }
+    }
+
+    @media (max-width: 960px) {
+      html, body { overflow: auto; }
+      .shell {
+        grid-template-columns: 1fr;
+        height: auto;
+      }
+      .rail {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+      .brand { grid-column: 1 / -1; }
+      .topbar { grid-template-columns: 1fr; }
+      .screen { height: auto; }
+    }
+  </style>
+</head>
+<body data-mode="dark">
+  <div class="shell">
+    <aside class="rail">
+      <div class="brand">AM</div>
+      <button class="nav-btn active" data-screen="overview"><span class="nav-icon">OV</span><span class="nav-label">总览</span></button>
+      <button class="nav-btn" data-screen="sessions"><span class="nav-icon">SE</span><span class="nav-label">会话</span></button>
+      <button class="nav-btn" data-screen="memory"><span class="nav-icon">ME</span><span class="nav-label">记忆</span></button>
+      <button class="nav-btn" data-screen="assets"><span class="nav-icon">AS</span><span class="nav-label">资产</span></button>
+    </aside>
+
+    <div class="workspace">
+      <header class="topbar">
+        <div class="command" id="commandOpen">
+          <span class="kbd">Ctrl K</span>
+          <div>
+            <div class="command-title">命令检索与上下文切换</div>
+            <div class="command-sub">优先支持会话定位、记忆跳转、图谱入口和状态操作</div>
+          </div>
+        </div>
+        <div class="top-actions">
+          <button class="toggle" id="modeSwitch">切换浅色</button>
+          <button class="ghost" id="toastBtn">演示 Toast</button>
+          <button class="primary" id="refreshBtn">刷新工作台</button>
+        </div>
+      </header>
+
+      <div class="surface">
+        <section class="screen active" id="screen-overview">
+          <div class="screen-grid">
+            <main class="main">
+              <section class="hero">
+                <div>
+                  <span class="eyebrow">Dark Professional · 长时工作模式</span>
+                  <h1>这不是“更酷一点”的暗色，而是为长时间浏览、筛选、追踪和判断设计的专业情报界面。</h1>
+                  <p class="muted">新版原型压低了装饰性，强化层级、状态、时序和上下文关系。你可以在同一个主界面里完成会话追踪、记忆沉淀、图谱关系浏览和资产复用，而不会被过量的视觉噪音打断。</p>
+                  <div class="actions">
+                    <button class="primary" data-jump="sessions">进入会话页</button>
+                    <button class="ghost" data-jump="memory">查看记忆编辑</button>
+                    <button class="ghost" data-jump="assets">查看资产工位</button>
+                  </div>
+                </div>
+                <div class="hero-side">
+                  <article class="stat">
+                    <div class="stat-label">今日活跃上下文</div>
+                    <div class="stat-value">48</div>
+                    <div class="stat-sub">按真实更新时间排序的工作会话</div>
+                  </article>
+                  <article class="stat">
+                    <div class="stat-label">高价值记忆</div>
+                    <div class="stat-value">126</div>
+                    <div class="stat-sub">会话证据、偏好、修复经验自动聚合</div>
+                  </article>
+                  <article class="stat">
+                    <div class="stat-label">可复用资产</div>
+                    <div class="stat-value">32</div>
+                    <div class="stat-sub">原型、规则、说明文档、交互规范</div>
+                  </article>
+                </div>
+              </section>
+
+              <section class="split">
+                <article class="panel">
+                  <div class="panel-head">
+                    <div>
+                      <div class="panel-title">当前关注的记忆与证据</div>
+                      <div class="panel-sub">不强调花哨卡片，强调可判断的信息结构</div>
+                    </div>
+                    <span class="pill">专业模式</span>
+                  </div>
+                  <div class="list">
+                    <article class="memory">
+                      <div class="pill-row"><span class="pill">procedural</span><span class="pill">高优先级</span></div>
+                      <h4>feedback 单活跃规则</h4>
+                      <p class="muted">同一轮只允许一个活跃 feedback，用户已在聊天里直接回复时立即放弃旧等待。</p>
+                      <div class="meta"><span>17:02 更新</span><span>ID 已固化</span></div>
+                    </article>
+                    <article class="memory">
+                      <div class="pill-row"><span class="pill">semantic</span><span class="pill">解析器</span></div>
+                      <h4>interactive_feedback 还原链路</h4>
+                      <p class="muted">assistant 请求与 user 回复都必须还原进时间线，不能只剩工具折叠项。</p>
+                      <div class="meta"><span>会话页</span><span>证据完整</span></div>
+                    </article>
+                  </div>
+                </article>
+
+                <article class="panel">
+                  <div class="panel-head">
+                    <div>
+                      <div class="panel-title">操作时间流</div>
+                      <div class="panel-sub">明确最近发生了什么，以及下一步应该看哪里</div>
+                    </div>
+                  </div>
+                  <div class="timeline">
+                    <article class="timeline-item"><span class="meta">17:02</span><div><h4>写入 AI Memory 正式规则</h4><div class="muted">保留一条正式记录，重复项已删除。</div></div><span class="status ok">已完成</span></article>
+                    <article class="timeline-item"><span class="meta">16:56</span><div><h4>确认 feedback 重复调用链路</h4><div class="muted">用户已回复，但代理错误等待旧 feedback。</div></div><span class="status warn">已归因</span></article>
+                    <article class="timeline-item"><span class="meta">16:40</span><div><h4>会话页排序预热上线</h4><div class="muted">首屏进入即按真实会话时间排序。</div></div><span class="status ok">稳定</span></article>
+                  </div>
+                </article>
+              </section>
+            </main>
+
+            <aside class="aside">
+              <article class="context">
+                <h4>设计原则</h4>
+                <div class="muted">减少发光、压低色彩噪音、强化结构秩序和长期浏览舒适度。</div>
+                <div>
+                  <div class="muted">长时工作舒适度</div>
+                  <div class="line"><span style="width: 92%"></span></div>
+                </div>
+                <div>
+                  <div class="muted">信息层级清晰度</div>
+                  <div class="line"><span style="width: 89%"></span></div>
+                </div>
+              </article>
+              <article class="context">
+                <h4>状态反馈</h4>
+                <div class="muted">按钮忙碌态、底部 Toast、局部骨架屏仍保留，但视觉语言比上一版更克制。</div>
+              </article>
+            </aside>
+          </div>
+        </section>
+
+        <section class="screen" id="screen-sessions">
+          <div class="session-layout">
+            <aside class="column">
+              <div class="panel-head"><div><div class="panel-title">框架与会话</div><div class="panel-sub">按真实更新时间排列</div></div></div>
+              <input class="search-box" value="搜索会话、反馈内容、终端动作..." readonly />
+              <div class="stack">
+                <article class="session-card"><h4>feedback 重复调用链路确认</h4><div class="muted">用户已回复，但代理仍等待旧 feedback 的错误链路。</div><div class="meta"><span>Copilot</span><span>17:02</span></div></article>
+                <article class="session-card"><h4>暗色专业原型切换</h4><div class="muted">保留旧版文件，新增暗色专业版和风格预览页。</div><div class="meta"><span>原型</span><span>进行中</span></div></article>
+                <article class="session-card"><h4>排序预热与会话真实性</h4><div class="muted">进入页面就按真实会话时间排序，而不是点击后重排。</div><div class="meta"><span>Qt</span><span>稳定</span></div></article>
+              </div>
+            </aside>
+
+            <section class="transcript">
+              <div class="panel-head"><div><div class="panel-title">feedback 重复调用链路确认</div><div class="panel-sub">专业模式下，时间线更强调因果关系和责任边界</div></div><span class="pill">单活跃约束</span></div>
+              <div class="field">链路摘要：第一个 feedback 仍处于等待中时，代理又触发了新的 feedback；用户回复后，代理错误地继续等待旧调用，直到用户手动结束会话，工具返回 Canceled。</div>
+              <div class="message-list">
+                <article class="bubble assistant"><div class="bubble-head"><span>AI</span><span>16:53</span></div><div>刚才没有继续调用 feedback，是因为我为了避免再次出现重复调用，错误地退回成了普通聊天回复。</div></article>
+                <article class="bubble user"><div class="bubble-head"><span>用户</span><span>16:55</span></div><div>为什么又不调用 feedback 了？Canceled 是因为我手动结束了会话。</div></article>
+                <article class="bubble assistant"><div class="bubble-head"><span>AI</span><span>16:58</span></div><div>根因已经明确：重复发起 feedback，而且没有把“用户已在聊天中回复”当成足以结束旧等待的信号。</div></article>
+              </div>
+            </section>
+
+            <aside class="column">
+              <div class="panel-head"><div><div class="panel-title">调查面板</div><div class="panel-sub">后续长时挂机要按时间链路记录</div></div></div>
+              <article class="context">
+                <h4>必须记录</h4>
+                <div class="muted">AI 发起 feedback 时间、用户自动回复时间、工具返回时间、返回结果、是否出现 Canceled 或 Connection closed。</div>
+              </article>
+              <article class="context">
+                <h4>判定目标</h4>
+                <div class="muted">分清是连接断开、工具超时、用户主动结束，还是代理重复发起 feedback 造成替换。</div>
+              </article>
+            </aside>
+          </div>
+        </section>
+
+        <section class="screen" id="screen-memory">
+          <div class="memory-layout">
+            <aside class="column">
+              <div class="panel-head"><div><div class="panel-title">记忆堆栈</div><div class="panel-sub">高优先级规则优先固定在上方</div></div></div>
+              <div class="stack">
+                <article class="session-card"><h4>feedback 单活跃规则</h4><div class="muted">procedural / high</div><div class="meta"><span>长期记忆</span><span>已保存</span></div></article>
+                <article class="session-card"><h4>AI Memory 运行环境约束</h4><div class="muted">不能使用当前工作区虚拟环境 Python。</div><div class="meta"><span>环境</span><span>长期有效</span></div></article>
+              </div>
+            </aside>
+
+            <section class="workspace-card split-inner">
+              <div>
+                <div class="panel-head"><div><div class="panel-title">记忆详情编辑</div><div class="panel-sub">更像审阅台，而不是普通表单</div></div><span class="pill">procedural</span></div>
+                <div class="field">
+                  <strong>摘要</strong><br />
+                  同一轮只允许一个活跃 interactive_feedback，用户若已在聊天直接回复，立即放弃旧等待。
+                </div>
+                <div class="field">
+                  <strong>正文</strong><br />
+                  当工具返回 Canceled、The user cancelled the tool call、Connection closed 等结果时，必须立刻清空等待状态，不允许继续假设系统仍在等待该 feedback。
+                </div>
+              </div>
+              <aside>
+                <div class="context">
+                  <h4>动作</h4>
+                  <div class="pill-row"><span class="pill">复制引用</span><span class="pill">追加标签</span><span class="pill">生成摘要</span></div>
+                </div>
+                <div class="context">
+                  <h4>强度</h4>
+                  <div class="line"><span style="width: 94%"></span></div>
+                  <div class="meta"><span>9.4 / 10</span><span>本轮更新</span></div>
+                </div>
+              </aside>
+            </section>
+          </div>
+        </section>
+
+        <section class="screen" id="screen-assets">
+          <div class="assets-layout">
+            <section class="workspace-card">
+              <div class="panel-head"><div><div class="panel-title">资产工位</div><div class="panel-sub">更强调来源、价值和后续动作</div></div><span class="pill">32 项</span></div>
+              <div class="asset-grid">
+                <article class="asset"><h4>现有原型文件</h4><div class="muted">保留原先“科技清爽情报台”版本，作为对照稿存在。</div><div class="meta"><span>index.html</span><span>保留</span></div></article>
+                <article class="asset"><h4>暗色专业版原型</h4><div class="muted">作为新的主候选风格，后续继续迭代这一版。</div><div class="meta"><span>dark-professional.html</span><span>当前主线</span></div></article>
+                <article class="asset"><h4>风格预览页</h4><div class="muted">后续用于横向比较风格，不必再反复口头描述。</div><div class="meta"><span>style-preview.html</span><span>新增</span></div></article>
+                <article class="asset"><h4>反馈观察说明</h4><div class="muted">挂起时记录双方时间和返回结果，定位断开的真实根因。</div><div class="meta"><span>待补充</span><span>下一步</span></div></article>
+              </div>
+            </section>
+
+            <aside class="column">
+              <div class="panel-head"><div><div class="panel-title">当前判断</div><div class="panel-sub">视觉方向的取舍</div></div></div>
+              <article class="context">
+                <h4>为什么它更适合</h4>
+                <div class="muted">AI Memory Qt 是长期工作的情报工具，不是一次性展示页。暗色专业风更稳定、更耐看，也更适合会话、图谱和资产页的高密度信息。</div>
+              </article>
+              <article class="context">
+                <h4>仍保留的优点</h4>
+                <div class="muted">保留多主题能力、Toast 反馈、命令入口和上下文侧栏，但减少轻飘的玻璃感和过亮的渐变。</div>
+              </article>
+            </aside>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast">刷新成功 · 暗色专业原型已同步状态</div>
+
+  <script>
+    const navButtons = document.querySelectorAll('.nav-btn');
+    const screens = document.querySelectorAll('.screen');
+    const toast = document.getElementById('toast');
+    const refreshBtn = document.getElementById('refreshBtn');
+    const toastBtn = document.getElementById('toastBtn');
+    const modeSwitch = document.getElementById('modeSwitch');
+
+    function showScreen(name) {
+      navButtons.forEach((button) => button.classList.toggle('active', button.dataset.screen === name));
+      screens.forEach((screen) => screen.classList.toggle('active', screen.id === `screen-${name}`));
+    }
+
+    navButtons.forEach((button) => {
+      button.addEventListener('click', () => showScreen(button.dataset.screen));
+    });
+
+    document.querySelectorAll('[data-jump]').forEach((button) => {
+      button.addEventListener('click', () => showScreen(button.dataset.jump));
+    });
+
+    function fireToast(message) {
+      toast.textContent = message;
+      toast.classList.add('show');
+      clearTimeout(window.__toast);
+      window.__toast = setTimeout(() => toast.classList.remove('show'), 1800);
+    }
+
+    toastBtn.addEventListener('click', () => fireToast('状态反馈正常 · 这套风格会保留 Toast 但降低炫光')); 
+
+    refreshBtn.addEventListener('click', () => {
+      refreshBtn.disabled = true;
+      refreshBtn.textContent = '刷新中...';
+      setTimeout(() => {
+        refreshBtn.disabled = false;
+        refreshBtn.textContent = '刷新工作台';
+        fireToast('刷新成功 · 工作台状态已更新');
+      }, 1200);
+    });
+
+    modeSwitch.addEventListener('click', () => {
+      const isDark = document.body.getAttribute('data-mode') !== 'light';
+      document.body.setAttribute('data-mode', isDark ? 'light' : 'dark');
+      modeSwitch.textContent = isDark ? '切换深色' : '切换浅色';
+    });
+  </script>
+</body>
+</html>

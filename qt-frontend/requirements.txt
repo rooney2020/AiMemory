@@ -1,0 +1,5 @@
+PyQt5>=5.15
+PyQtWebEngine>=5.15
+markdown>=3.4
+setproctitle>=1.3
+# 后端依赖：先 cd ../backend && pip install -e . 安装后端

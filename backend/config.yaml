@@ -1,0 +1,50 @@
+memory:
+  db_path: ~/.local/share/ai-memory/db/memory.db
+  readable_path: ~/.local/share/ai-memory/readable/
+
+embedding:
+  model: BAAI/bge-small-zh-v1.5
+  device: cpu
+  cache_dir: ~/.local/share/ai-memory/models/
+  lazy_load: true
+
+retrieval:
+  channels:
+    fts:
+      enabled: true
+      weight: 0.25
+    vector:
+      enabled: true
+      weight: 0.35
+    graph:
+      enabled: true
+      weight: 0.20
+    temporal:
+      enabled: true
+      weight: 0.20
+  top_k: 10
+  rrf_k: 60
+
+decay:
+  enabled: true
+  check_interval_hours: 24
+  protection_days: 30
+  min_strength: 0.1
+  core_threshold: 5.0
+  procedural_rate_factor: 0.5
+
+working_memory:
+  max_tokens: 2000
+  fixed_section_tokens: 300
+  dynamic_section_tokens: 1500
+  recent_section_tokens: 200
+  recent_sessions: 3
+
+consolidation:
+  on_access: true
+  spacing_bonus_max: 3.0
+  co_retrieval_bonus: 0.05
+
+asset:
+  auto_hash: true
+  validate_on_lookup: false
