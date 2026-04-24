@@ -154,11 +154,11 @@ def make_dot_icon(color: str, size: int = 12) -> QIcon:
 class SessionDelegate(QStyledItemDelegate):
     """自定义会话列表项渲染：标题自动换行 + 下方元信息"""
 
-    PADDING_H = 10
-    PADDING_V = 6
+    PADDING_H = 14
+    PADDING_V = 8
     SUB_H = 18
-    LH = 17
-    MAX_LINES = 3
+    LH = 16
+    MAX_LINES = 1
     _tf = QFont("sans-serif", 11)
     _sf = QFont("sans-serif", 9)
 
@@ -184,45 +184,85 @@ class SessionDelegate(QStyledItemDelegate):
         return lines
 
     def sizeHint(self, option, index):
-        data = index.data(Qt.UserRole + 1)
-        if not data:
-            return QSize(option.rect.width(), 50)
-        title = data.get("title", "")
-        avail = max(200, (option.rect.width() or 300) - 2 * self.PADDING_H - 4)
-        n = len(self._wrap(title, avail, QFontMetrics(self._tf), self.MAX_LINES))
-        return QSize(option.rect.width(), self.PADDING_V * 2 + n * self.LH + self.SUB_H + 2)
+        return QSize(option.rect.width(), 88)
 
     def paint(self, painter: QPainter, option, index):
         painter.save()
         painter.setRenderHint(QPainter.Antialiasing)
-        rect = option.rect.adjusted(2, 1, -2, -1)
-
-        is_sel = bool(option.state & QStyle.State_Selected)
-        is_hov = bool(option.state & QStyle.State_MouseOver)
-        if is_sel:
-            bg = QColor(C["surface0"]); bg.setAlpha(180)
-            painter.setBrush(bg); painter.setPen(Qt.NoPen)
-            painter.drawRoundedRect(rect, 6, 6)
-        elif is_hov:
-            bg = QColor(C["surface0"]); bg.setAlpha(100)
-            painter.setBrush(bg); painter.setPen(Qt.NoPen)
-            painter.drawRoundedRect(rect, 6, 6)
+        rect = option.rect.adjusted(4, 3, -4, -3)
 
         data = index.data(Qt.UserRole + 1)
         if not data:
             painter.restore(); return
 
+        is_sel = bool(option.state & QStyle.State_Selected)
+        is_hov = bool(option.state & QStyle.State_MouseOver)
+        fw_color = C["blue"]
+
+        bg = QColor(C["base"])
+        bg.setAlpha(245)
+        border = QColor(C["surface2"])
+        border.setAlpha(90)
+        if is_sel:
+            bg = QColor(C["surface0"])
+            bg.setAlpha(230)
+            border = QColor(fw_color)
+        elif is_hov:
+            bg = QColor(C["surface0"])
+            bg.setAlpha(180)
+            border = QColor(fw_color)
+            border.setAlpha(120)
+
+        painter.setBrush(bg)
+        painter.setPen(QPen(border, 1.2))
+        painter.drawRoundedRect(rect, 14, 14)
+
+        accent = QColor(fw_color)
+        accent.setAlpha(255 if is_sel else 190)
+        painter.setBrush(accent)
+        painter.setPen(Qt.NoPen)
+        painter.drawRoundedRect(QRect(rect.x() + 4, rect.y() + 8, 4, rect.height() - 16), 2, 2)
+
         title = data.get("title", "")
+        framework = data.get("framework", "会话记录")
         time_str = data.get("time", "")
         msg_count = data.get("msg_count", 0)
         workspace = data.get("workspace", "")
         archived = data.get("archived", False)
-        fw_color = data.get("fw_color", C["blue"])
 
         x = rect.x() + self.PADDING_H
         y = rect.y() + self.PADDING_V
         w = rect.width() - 2 * self.PADDING_H
         tx, tw = x, w
+
+        badge_font = QFont("sans-serif", 8)
+        badge_metrics = QFontMetrics(badge_font)
+        badge_text = framework
+        badge_w = badge_metrics.horizontalAdvance(badge_text) + 14
+        badge_h = 18
+
+        badge_bg = QColor(C["blue"])
+        badge_bg.setAlpha(42)
+        badge_border = QColor(C["blue"])
+        badge_border.setAlpha(120)
+        painter.setBrush(badge_bg)
+        painter.setPen(QPen(badge_border, 1))
+        painter.drawRoundedRect(QRect(x, y, badge_w, badge_h), 6, 6)
+        painter.setFont(badge_font)
+        painter.setPen(QColor(C["blue"]))
+        painter.drawText(QRect(x, y, badge_w, badge_h), Qt.AlignCenter, badge_text)
+
+        if time_str:
+            painter.setFont(QFont("sans-serif", 9))
+            painter.setPen(QColor(C["overlay0"]))
+            painter.drawText(
+                QRect(x + badge_w + 10, y, w - badge_w - 10, badge_h),
+                Qt.AlignRight | Qt.AlignVCenter,
+                time_str,
+            )
+
+        y += badge_h + 8
+        meta_y = rect.bottom() - self.PADDING_V - 14
 
         if archived:
             painter.setBrush(QColor(C["surface1"])); painter.setPen(Qt.NoPen)
@@ -241,19 +281,17 @@ class SessionDelegate(QStyledItemDelegate):
             painter.drawText(QRect(tx, y + i * self.LH, tw, self.LH),
                              Qt.AlignLeft | Qt.AlignVCenter, ln)
 
-        sy = y + len(lines) * self.LH + 2
         painter.setFont(self._sf)
         sfm = QFontMetrics(self._sf)
         painter.setPen(QColor(C["overlay0"]))
         sx = rect.x() + self.PADDING_H
-        if time_str:
-            painter.drawText(sx, sy + 12, time_str)
-            sx += sfm.horizontalAdvance(time_str) + 10
         if msg_count:
-            painter.drawText(sx, sy + 12, f"{msg_count} 条")
+            msg_text = f"{msg_count} 条"
+            msg_w = sfm.horizontalAdvance(msg_text)
+            painter.drawText(QRect(sx, meta_y, msg_w + 4, 14), Qt.AlignLeft | Qt.AlignVCenter, msg_text)
             sx += sfm.horizontalAdvance(f"{msg_count} 条") + 10
         if workspace:
-            painter.setPen(QColor(fw_color))
-            painter.drawText(sx, sy + 12, workspace)
+            painter.setPen(QColor(C["subtext0"]))
+            painter.drawText(QRect(sx, meta_y, w - (sx - x), 14), Qt.AlignLeft | Qt.AlignVCenter, workspace)
 
         painter.restore()

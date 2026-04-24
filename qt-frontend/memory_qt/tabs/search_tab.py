@@ -34,6 +34,9 @@ class SearchTab(QWidget):
         self._session_worker = None
         self._metric_values = {}
         self._current_query = ""
+        self._selected_memory_id: str | None = None
+        self._selected_session_card = None
+        self._session_card_map: dict[str, QFrame] = {}
         self._build_ui()
 
     def _build_ui(self):
@@ -257,6 +260,10 @@ class SearchTab(QWidget):
             if child.widget():
                 child.widget().deleteLater()
 
+        self._selected_memory_id = None
+        self._selected_session_card = None
+        self._session_card_map.clear()
+
         results = self.bridge.search(query, top_k=20)
 
         mem_count = 0
@@ -359,12 +366,7 @@ class SearchTab(QWidget):
 
     def _make_session_card(self, sess: SessionInfo) -> QFrame:
         card = QFrame()
-        card.setStyleSheet(
-            f"QFrame {{ background: {_rgba(C['base'], 0.96)}; border: 1px solid {_rgba(C['surface2'], 0.38)};"
-            f" border-left: 3px solid {C[sess.framework.color_key]}; border-radius: 16px; }}"
-            f"QFrame:hover {{ border: 1px solid {_rgba(C[sess.framework.color_key], 0.62)};"
-            f" border-left: 3px solid {C[sess.framework.color_key]}; }}"
-        )
+        self._apply_session_card_style(card, sess.framework.color_key, selected=False)
         card.setCursor(Qt.PointingHandCursor)
 
         layout = QVBoxLayout(card)
@@ -411,10 +413,25 @@ class SearchTab(QWidget):
         )
         layout.addWidget(meta)
 
-        card.mousePressEvent = lambda e, s=sess: self._on_session_card_click(s)
+        card.mousePressEvent = lambda e, s=sess, c=card: self._on_session_card_click(s, c)
         return card
 
-    def _on_session_card_click(self, sess: SessionInfo):
+    def _apply_session_card_style(self, card: QFrame, color_key: str, selected: bool):
+        border = _rgba(C[color_key], 0.82) if selected else _rgba(C['surface2'], 0.38)
+        bg_start = _rgba(C['surface0'], 0.88) if selected else _rgba(C['base'], 0.96)
+        bg_end = _rgba(C['surface1'], 0.94) if selected else _rgba(C['surface0'], 0.9)
+        card.setStyleSheet(
+            f"QFrame {{ background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 {bg_start}, stop:1 {bg_end});"
+            f" border: 1px solid {border}; border-left: 3px solid {C[color_key]}; border-radius: 16px; }}"
+            f"QFrame:hover {{ border: 1px solid {_rgba(C[color_key], 0.62)}; border-left: 3px solid {C[color_key]}; }}"
+        )
+
+    def _on_session_card_click(self, sess: SessionInfo, card: QFrame):
+        if self._selected_session_card and self._selected_session_card is not card:
+            self._apply_session_card_style(self._selected_session_card, self._selected_session_card.property("fw_color_key"), selected=False)
+        card.setProperty("fw_color_key", sess.framework.color_key)
+        self._apply_session_card_style(card, sess.framework.color_key, selected=True)
+        self._selected_session_card = card
         loaded = self._session_scanner.load_messages(sess)
         # 保存当前会话，用于展开跳过段
         self._current_session = loaded
@@ -615,7 +632,16 @@ class SearchTab(QWidget):
         return "\n".join(parts), total_matches
 
     def _on_card_click(self, mem_id: str):
+        self._selected_memory_id = mem_id
         if mem_id in self._result_memories:
+            for layout_index in range(self.results_layout.count()):
+                item = self.results_layout.itemAt(layout_index)
+                widget = item.widget() if item else None
+                if not widget:
+                    continue
+                card = widget.findChild(MemoryCard)
+                if card:
+                    card.set_selected(card.memory_id == mem_id)
             self.detail.show_memory(
                 self._result_memories[mem_id],
                 highlight_term=getattr(self, '_current_query', ''),

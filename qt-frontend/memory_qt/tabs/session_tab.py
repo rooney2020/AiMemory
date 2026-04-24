@@ -1,13 +1,15 @@
 """会话浏览 — 跨框架 AI 会话记录检测与查看"""
 
+import subprocess
+
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSplitter,
     QListWidget, QListWidgetItem, QScrollArea, QFrame,
     QPushButton, QLineEdit, QApplication, QSizePolicy,
     QButtonGroup, QTextBrowser, QToolButton, QMenu, QAction,
 )
-from PyQt5.QtCore import Qt, QTimer, QSize, pyqtSignal, QThread
-from PyQt5.QtGui import QFont, QColor
+from PyQt5.QtCore import Qt, QTimer, QSize, pyqtSignal, QThread, QUrl
+from PyQt5.QtGui import QFont, QColor, QDesktopServices
 
 from ..constants import C
 from ..theme import (
@@ -34,10 +36,28 @@ def _rgba(hex_color: str, opacity: float) -> str:
     return f"rgba({red}, {green}, {blue}, {opacity})"
 
 
+def _make_label_selectable(label: QLabel) -> QLabel:
+    label.setTextInteractionFlags(
+        Qt.TextSelectableByMouse | Qt.TextSelectableByKeyboard | Qt.LinksAccessibleByMouse
+    )
+    return label
+
+
+def _make_browser_selectable(browser: QTextBrowser) -> QTextBrowser:
+    browser.setReadOnly(True)
+    browser.setTextInteractionFlags(
+        Qt.TextSelectableByMouse
+        | Qt.TextSelectableByKeyboard
+        | Qt.LinksAccessibleByMouse
+        | Qt.LinksAccessibleByKeyboard
+    )
+    return browser
+
+
 class SessionTab(QWidget):
     busy_changed = pyqtSignal(bool)
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, auto_scan: bool = True):
         super().__init__(parent)
         self.scanner = SessionScanner()
         self.bookmarks = BookmarkManager()
@@ -66,9 +86,14 @@ class SessionTab(QWidget):
         self._compare_sessions: list[SessionInfo] = []
         self._highlight_term: str = ""
         self._busy = False
+        self._auto_scan = auto_scan
         self._metric_values = {}
         self._build_ui()
-        self._do_scan()
+        if self._auto_scan:
+            self._do_scan()
+
+    def has_loaded_data(self) -> bool:
+        return bool(self._sources or self._sessions_cache or self._busy)
 
     def _build_ui(self):
         layout = QVBoxLayout(self)
@@ -216,13 +241,14 @@ class SessionTab(QWidget):
         self._session_list = QListWidget()
         self._session_list.setStyleSheet(
             f"QListWidget {{ background: transparent; border: 1px solid {_rgba(C['surface2'], 0.35)};"
-            f" border-radius: 18px; outline: none; padding: 6px; }}"
+            f" border-radius: 18px; outline: none; padding: 10px; }}"
             f"QListWidget::item {{ padding: 0; margin: 0; border: none; }}"
             f"QListWidget::item:selected {{ background: transparent; }}"
         )
         self._session_list.setItemDelegate(SessionDelegate(self._session_list))
         self._session_list.setMouseTracking(True)
         self._session_list.setMinimumWidth(320)
+        self._session_list.setSpacing(2)
         self._session_list.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self._session_list.setTextElideMode(Qt.ElideRight)
         self._session_list.currentRowChanged.connect(self._on_session_selected)
@@ -275,11 +301,26 @@ class SessionTab(QWidget):
         bar_layout = QHBoxLayout(self._detail_bar)
         bar_layout.setContentsMargins(4, 0, 4, 0)
         self._detail_info = QLabel("")
+        _make_label_selectable(self._detail_info)
         self._detail_info.setStyleSheet(
             f"color: {C['subtext0']}; font-size: 12px; border: none; background: transparent;"
         )
         bar_layout.addWidget(self._detail_info)
         bar_layout.addStretch()
+
+        self._copy_path_btn = QPushButton("复制路径")
+        self._copy_path_btn.setStyleSheet(secondary_btn_style())
+        self._copy_path_btn.setFixedWidth(96)
+        self._copy_path_btn.clicked.connect(self._copy_session_path)
+        self._copy_path_btn.setVisible(False)
+        bar_layout.addWidget(self._copy_path_btn)
+
+        self._open_file_btn = QPushButton("在文件夹中打开")
+        self._open_file_btn.setStyleSheet(secondary_btn_style())
+        self._open_file_btn.setFixedWidth(136)
+        self._open_file_btn.clicked.connect(self._open_session_file)
+        self._open_file_btn.setVisible(False)
+        bar_layout.addWidget(self._open_file_btn)
 
         from ..components.exporter import make_export_button, build_format_menu
         self._export_btn = make_export_button(self)
@@ -424,7 +465,7 @@ class SessionTab(QWidget):
         self._bookmark_filter_btn.setStyleSheet(self._bookmark_filter_style())
         self._session_list.setStyleSheet(
             f"QListWidget {{ background: transparent; border: 1px solid {_rgba(C['surface2'], 0.35)};"
-            f" border-radius: 18px; outline: none; padding: 6px; }}"
+            f" border-radius: 18px; outline: none; padding: 10px; }}"
             f"QListWidget::item {{ padding: 0; margin: 0; border: none; }}"
             f"QListWidget::item:selected {{ background: transparent; }}"
         )
@@ -669,13 +710,14 @@ class SessionTab(QWidget):
                 clean_title = "[收藏] " + clean_title
             item.setData(Qt.UserRole + 1, {
                 "title": clean_title,
+                "framework": self._current_fw or sess.framework.value,
                 "time": sess.display_time,
                 "msg_count": sess.message_count,
                 "workspace": ws_short,
                 "archived": bool(sess.metadata.get("archived")),
                 "fw_color": fw_color,
             })
-            item.setSizeHint(QSize(0, 58))
+            item.setSizeHint(QSize(0, 88))
             item.setToolTip(
                 f"{sess.title}\n{sess.message_count} 条消息\n{sess.file_path}"
             )
@@ -744,12 +786,16 @@ class SessionTab(QWidget):
         return "其他工具"
 
     def _sync_tool_filter_button_state(self, session: SessionInfo | None):
-        has_tools = bool(session and any(msg.role == "tool" for msg in session.messages))
+        tool_count = sum(1 for msg in session.messages if msg.role == "tool") if session else 0
+        has_tools = tool_count > 0
         self._tool_filter_btn.setEnabled(has_tools)
         if not has_tools:
             self._show_tool_messages = False
             self._tool_filter_btn.setChecked(False)
-        self._tool_filter_btn.setText("工具已显示" if self._show_tool_messages else "工具已隐藏")
+            self._tool_filter_btn.setText("无工具消息")
+            return
+        state_text = "工具已显示" if self._show_tool_messages else "工具已隐藏"
+        self._tool_filter_btn.setText(f"{state_text} ({tool_count})")
 
     def _on_tool_visibility_toggled(self, checked: bool):
         self._show_tool_messages = checked
@@ -856,6 +902,9 @@ class SessionTab(QWidget):
         self._clear_chat_layout()
         self._sync_tool_filter_button_state(session)
         self._visible_session_messages = self._filtered_messages(session.messages)
+        total_messages = len(session.messages)
+        visible_count = len(self._visible_session_messages)
+        hidden_tool_count = max(0, total_messages - visible_count)
 
         if not self._visible_session_messages:
             self._show_placeholder("此会话没有可显示的消息")
@@ -865,7 +914,10 @@ class SessionTab(QWidget):
         if session.workspace:
             meta_parts.append(f"工作区: {session.workspace}")
         meta_parts.append(f"框架: {session.framework.value}")
-        meta_parts.append(f"消息: {session.message_count} 条")
+        if hidden_tool_count > 0 and not self._show_tool_messages:
+            meta_parts.append(f"当前显示: {visible_count} / {total_messages} 条（隐藏工具 {hidden_tool_count} 条）")
+        else:
+            meta_parts.append(f"消息: {total_messages} 条")
         if session.display_time:
             meta_parts.append(f"时间: {session.display_time}")
         if session.metadata.get("model"):
@@ -883,6 +935,7 @@ class SessionTab(QWidget):
 
         if fmt == "jsonl":
             hint = QLabel("JSONL 格式不包含工具调用记录，仅 TXT 格式的会话可查看完整工具调用过程")
+            _make_label_selectable(hint)
             hint.setWordWrap(True)
             hint.setStyleSheet(
                 f"color: {C['yellow']}; font-size: 11px; padding: 8px 12px; "
@@ -890,12 +943,24 @@ class SessionTab(QWidget):
             )
             self._chat_layout.addWidget(hint)
 
+        if hidden_tool_count > 0 and not self._show_tool_messages:
+            hidden_hint = QLabel(f"当前只显示可见对话内容：{visible_count} / {total_messages} 条。另有 {hidden_tool_count} 条工具消息已隐藏，可通过右上角按钮展开查看。")
+            _make_label_selectable(hidden_hint)
+            hidden_hint.setWordWrap(True)
+            hidden_hint.setStyleSheet(
+                f"color: {C['blue']}; font-size: 11px; padding: 8px 12px; "
+                f"background: {_rgba(C['blue'], 0.1)}; border: 1px solid {_rgba(C['blue'], 0.22)}; border-radius: 12px;"
+            )
+            self._chat_layout.addWidget(hidden_hint)
+
         self._displayed_count = 0
         self._load_more_messages(request_token)
 
         self._detail_info.setText(
-            f"{session.framework.value} | {session.message_count} 条消息 | {session.file_path}"
+            f"{session.framework.value} | 当前显示 {visible_count} / {total_messages} 条消息 | {session.file_path}"
         )
+        self._copy_path_btn.setVisible(True)
+        self._open_file_btn.setVisible(True)
         self._export_btn.setVisible(True)
         self._bookmark_btn.setVisible(True)
         self._copy_btn.setVisible(True)
@@ -1019,6 +1084,7 @@ class SessionTab(QWidget):
             else:
                 content_label = QLabel(text)
                 content_label.setTextFormat(Qt.PlainText)
+            _make_label_selectable(content_label)
             content_label.setWordWrap(True)
             content_label.setStyleSheet(
                 f"color: {C['text']}; font-size: 13px; border: none; "
@@ -1054,6 +1120,7 @@ class SessionTab(QWidget):
             row.addWidget(tool_label, 0, Qt.AlignVCenter)
 
             summary_label = QLabel(first_line)
+            _make_label_selectable(summary_label)
             summary_label.setStyleSheet(
                 f"color: {C['subtext0']}; font-size: 12px; border: none; background: transparent;"
             )
@@ -1083,6 +1150,7 @@ class SessionTab(QWidget):
                     else:
                         if bh[0] is None:
                             bh[0] = AutoHeightBrowser()
+                            _make_browser_selectable(bh[0])
                             full_html = render_markdown(et, C["mantle"], False)
                             bh[0].setHtml(full_html)
                             bh[0].setStyleSheet(
@@ -1119,14 +1187,12 @@ class SessionTab(QWidget):
 
         visible_text, thinking_text = split_thinking(text)
 
-        if len(visible_text) > 1500:
-            visible_text = visible_text[:1500] + "\n\n... (内容已截断)"
-
         bg = C["base"]
         html_str = render_markdown(visible_text, bg, False)
         if hl:
             html_str = highlight_search(html_str, hl)
         browser = AutoHeightBrowser()
+        _make_browser_selectable(browser)
         browser.setOpenExternalLinks(True)
         browser.setStyleSheet(
             f"QTextBrowser {{ background: transparent; border: none; "
@@ -1155,7 +1221,8 @@ class SessionTab(QWidget):
                 else:
                     if th[0] is None:
                         th[0] = QTextBrowser()
-                        thinking_html = render_markdown(tt[:2000], bg, False)
+                        _make_browser_selectable(th[0])
+                        thinking_html = render_markdown(tt, bg, False)
                         th[0].setHtml(thinking_html)
                         th[0].setStyleSheet(
                             f"QTextBrowser {{ background: {C['mantle']}; border: none; "
@@ -1180,12 +1247,15 @@ class SessionTab(QWidget):
         self._clear_chat_layout()
 
         label = QLabel(text)
+        _make_label_selectable(label)
         label.setAlignment(Qt.AlignCenter)
         label.setStyleSheet(
             f"color: {C['overlay0']}; font-size: 14px; padding: 60px; background: transparent; border: none;"
         )
         self._chat_layout.addWidget(label)
         self._chat_layout.addStretch()
+        self._copy_path_btn.setVisible(False)
+        self._open_file_btn.setVisible(False)
         self._export_btn.setVisible(False)
         self._bookmark_btn.setVisible(False)
         self._copy_btn.setVisible(False)
@@ -1331,6 +1401,8 @@ class SessionTab(QWidget):
                 self._chat_layout.addWidget(row)
 
         self._chat_layout.addStretch()
+        self._copy_path_btn.setVisible(False)
+        self._open_file_btn.setVisible(False)
         self._export_btn.setVisible(False)
         self._bookmark_btn.setVisible(False)
         self._copy_btn.setVisible(False)
@@ -1352,6 +1424,26 @@ class SessionTab(QWidget):
             prefix = role_map.get(msg.role, msg.role)
             lines.append(f"[{prefix}]\n{msg.content}\n")
         QApplication.clipboard().setText("\n".join(lines))
+
+    def _copy_session_path(self):
+        if not self._current_session:
+            return
+        QApplication.clipboard().setText(str(self._current_session.file_path))
+
+    def _open_session_file(self):
+        if not self._current_session:
+            return
+        target_path = self._current_session.file_path
+        try:
+            subprocess.Popen(["nautilus", "--select", str(target_path)])
+            return
+        except OSError:
+            pass
+
+        target_dir = self._current_session.file_path.parent
+        if not target_dir.exists():
+            target_dir = target_path
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(target_dir)))
 
     def _on_filter(self, text: str):
         if not self._current_fw or self._current_fw not in self._sessions_cache:

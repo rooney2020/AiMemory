@@ -188,14 +188,62 @@ class CopilotParser(BaseParser):
         return sessions
 
     def load_messages(self, session: SessionInfo) -> SessionInfo:
-        custom_title, requests = _load_requests(session.file_path)
-        messages = _messages_from_requests(requests)
+        custom_title, messages = _load_event_messages(session.file_path)
 
         if custom_title:
             session.title = custom_title
         session.messages = messages
         session.message_count = len(messages)
         return session
+
+
+def _load_event_messages(path: Path) -> tuple[str, list[SessionMessage]]:
+    custom_title = ""
+    raw_messages: list[SessionMessage] = []
+    seen_request_ids: set[str] = set()
+
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    obj = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+
+                if not custom_title:
+                    custom_title = _extract_custom_title(obj)
+
+                for req in _extract_new_requests(obj):
+                    request_id = req.get("requestId") or f"request-{len(seen_request_ids)}"
+                    if request_id not in seen_request_ids:
+                        seen_request_ids.add(request_id)
+                        user_text = _extract_user_text(req)
+                        if user_text:
+                            raw_messages.append(SessionMessage(role="user", content=user_text))
+
+                    raw_messages.extend(_extract_response_messages(req.get("response")))
+
+                path_keys = obj.get("k")
+                if not (
+                    obj.get("kind") == 2
+                    and isinstance(path_keys, list)
+                    and len(path_keys) == 3
+                    and path_keys[0] == "requests"
+                    and isinstance(path_keys[1], int)
+                    and path_keys[2] == "response"
+                    and isinstance(obj.get("v"), list)
+                ):
+                    continue
+
+                raw_messages.extend(_extract_response_messages(obj.get("v")))
+
+    except (OSError, UnicodeDecodeError):
+        return custom_title, []
+
+    return custom_title, _compact_event_messages(raw_messages)
 
 
 def _messages_from_requests(requests: list[dict]) -> list[SessionMessage]:
@@ -219,6 +267,104 @@ def _messages_from_requests(requests: list[dict]) -> list[SessionMessage]:
                 messages.append(response_message)
 
     return messages
+
+
+def _compact_event_messages(messages: list[SessionMessage]) -> list[SessionMessage]:
+    compacted: list[SessionMessage] = []
+    seen_global: set[tuple[str, str, str]] = set()
+    seen_since_user: dict[str, set[tuple[str, str]]] = {
+        "assistant": set(),
+        "tool": set(),
+        "system": set(),
+    }
+
+    for message in messages:
+        content = message.content.strip()
+        detail = message.detail.strip()
+        if not content and not detail:
+            continue
+        if message.role == "assistant" and _is_non_visual_assistant_text(content):
+            continue
+
+        normalized = SessionMessage(
+            role=message.role,
+            content=content,
+            timestamp=message.timestamp,
+            detail=detail,
+        )
+
+        if normalized.role == "user":
+            if compacted and compacted[-1].role == "user" and compacted[-1].content == normalized.content:
+                continue
+            compacted.append(normalized)
+            seen_since_user = {
+                "assistant": set(),
+                "tool": set(),
+                "system": set(),
+            }
+            continue
+
+        if normalized.role == "assistant":
+            previous_assistant_index = _find_recent_turn_message(compacted, "assistant")
+            if previous_assistant_index is not None:
+                previous_assistant = compacted[previous_assistant_index]
+                if (
+                    not previous_assistant.detail
+                    and not normalized.detail
+                    and _is_stream_update(previous_assistant.content, normalized.content)
+                ):
+                    old_key = (previous_assistant.content, previous_assistant.detail)
+                    seen_since_user["assistant"].discard(old_key)
+                    compacted[previous_assistant_index] = normalized
+                    seen_since_user["assistant"].add((normalized.content, normalized.detail))
+                    continue
+
+        role_seen = seen_since_user.setdefault(normalized.role, set())
+        key = (normalized.content, normalized.detail)
+        if key in role_seen:
+            continue
+
+        global_key = (normalized.role, normalized.content, normalized.detail)
+        if normalized.role in {"tool", "system"} and global_key in seen_global:
+            continue
+
+        role_seen.add(key)
+        if normalized.role in {"tool", "system"}:
+            seen_global.add(global_key)
+        compacted.append(normalized)
+
+    return compacted
+
+
+def _find_recent_turn_message(messages: list[SessionMessage], role: str) -> int | None:
+    for index in range(len(messages) - 1, -1, -1):
+        message = messages[index]
+        if message.role == "user":
+            return None
+        if message.role == role:
+            return index
+    return None
+
+
+def _is_stream_update(previous: str, current: str) -> bool:
+    if previous == current:
+        return True
+
+    short_text, long_text = (previous, current) if len(previous) <= len(current) else (current, previous)
+    if len(short_text) >= 24 and short_text in long_text:
+        return True
+    if len(short_text) >= 12 and long_text.startswith(short_text):
+        return True
+    if len(short_text) >= 12 and long_text.endswith(short_text):
+        return True
+    return False
+
+
+def _is_non_visual_assistant_text(content: str) -> bool:
+    if not content:
+        return True
+    stripped = re.sub(r"[`\s]+", "", content)
+    return stripped == ""
 
 
 def _resolve_workspace_name(ws_dir: Path) -> str:
@@ -322,7 +468,8 @@ def _load_requests(path: Path) -> tuple[str, list[dict]]:
                     continue
 
                 if path_keys[0] == "requests":
-                    _apply_patch(state["requests"], path_keys[1:], value)
+                    splice_index = obj.get("i") if isinstance(obj.get("i"), int) else None
+                    _apply_patch(state["requests"], path_keys[1:], value, splice_index)
 
     except (OSError, UnicodeDecodeError):
         pass
@@ -742,7 +889,7 @@ def _find_request_index(requests: list[dict], request_id: str | None) -> int | N
     return None
 
 
-def _apply_patch(root, path: list, value) -> None:
+def _apply_patch(root, path: list, value, splice_index: int | None = None) -> None:
     if not path:
         return
 
@@ -775,39 +922,30 @@ def _apply_patch(root, path: list, value) -> None:
         return
 
     if isinstance(container, dict):
-        if last == "response" and isinstance(container.get(last), list) and isinstance(value, list):
-            container[last] = _merge_response_items(container[last], value)
+        if last == "response" and isinstance(value, list):
+            existing = container.get(last)
+            if isinstance(existing, list):
+                start = splice_index if splice_index is not None else 0
+                container[last] = _patch_list_items(existing, start, value)
+            else:
+                container[last] = value
             return
         container[last] = value
 
 
-def _merge_response_items(existing: list, incoming: list) -> list:
-    merged: list = []
-    index_by_key: dict[str, int] = {}
+def _patch_list_items(existing: list, start: int, incoming: list) -> list:
+    patched = list(existing)
+    while len(patched) < start:
+        patched.append(None)
 
-    def add_item(item) -> None:
-        key = _response_item_key(item)
-        if key and key in index_by_key:
-            merged[index_by_key[key]] = item
-            return
-        if key:
-            index_by_key[key] = len(merged)
-        merged.append(item)
+    for offset, item in enumerate(incoming):
+        index = start + offset
+        if index < len(patched):
+            patched[index] = item
+        else:
+            patched.append(item)
 
-    for item in existing:
-        if _should_preserve_response_item(item):
-            add_item(item)
-
-    for item in incoming:
-        add_item(item)
-
-    return merged
-
-
-def _should_preserve_response_item(item) -> bool:
-    if not isinstance(item, dict):
-        return False
-    return item.get("kind") in {"toolInvocationSerialized", "elicitationSerialized"}
+    return patched
 
 
 def _response_item_key(item) -> str:

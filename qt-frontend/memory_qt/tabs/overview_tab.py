@@ -23,6 +23,7 @@ class OverviewTab(QWidget):
         self.bridge = bridge
         self._memories = []
         self._all_memories = []
+        self._selected_memory_id: str | None = None
         self._build_ui()
         self.refresh()
 
@@ -191,6 +192,7 @@ class OverviewTab(QWidget):
             card = MemoryCard(mem)
             card.clicked.connect(self._on_card_click)
             self.recent_layout.addWidget(card)
+            card.set_selected(mem.id == self._selected_memory_id)
         self.recent_layout.addStretch()
 
         self._refresh_analytics()
@@ -216,6 +218,12 @@ class OverviewTab(QWidget):
         self._entity_chart.setFixedHeight(row2_height)
 
     def _on_card_click(self, mem_id: str):
+        self._selected_memory_id = mem_id
+        for index in range(self.recent_layout.count()):
+            item = self.recent_layout.itemAt(index)
+            widget = item.widget() if item else None
+            if isinstance(widget, MemoryCard):
+                widget.set_selected(widget.memory_id == mem_id)
         for mem in self._memories:
             if mem.id == mem_id:
                 self.detail.show_memory(mem)

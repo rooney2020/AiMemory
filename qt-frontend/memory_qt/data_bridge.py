@@ -127,6 +127,25 @@ class DataBridge:
     def validate_asset(self, asset_id: str) -> dict:
         return self.asset_registry.validate(asset_id)
 
+    def validate_assets(self, asset_ids: list[str]) -> dict:
+        summary = {
+            "total": 0,
+            "valid": 0,
+            "invalid": 0,
+            "results": [],
+        }
+
+        for asset_id in asset_ids:
+            result = self.asset_registry.validate(asset_id)
+            summary["total"] += 1
+            if result.get("valid"):
+                summary["valid"] += 1
+            else:
+                summary["invalid"] += 1
+            summary["results"].append({"asset_id": asset_id, **result})
+
+        return summary
+
     def delete_asset(self, asset_id: str):
         self.db.execute("DELETE FROM assets WHERE id = ?", (asset_id,))
         self.db.commit()

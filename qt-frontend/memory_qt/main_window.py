@@ -99,6 +99,14 @@ class MainWindow(QMainWindow):
         self._metric_values = {}
         self._settings_dialog = None
         self._settings_export_btn = None
+        self.overview_tab = None
+        self.session_tab = None
+        self.episodic_tab = None
+        self.semantic_tab = None
+        self.procedural_tab = None
+        self.asset_tab = None
+        self.graph_tab = None
+        self.search_tab = None
         self.setWindowTitle(f"{APP_NAME} v{APP_VERSION}")
         self.setMinimumSize(1200, 800)
         self.resize(1400, 900)
@@ -139,24 +147,30 @@ class MainWindow(QMainWindow):
         self.tabs.setElideMode(Qt.ElideNone)
         self.tabs.tabBar().setExpanding(False)
 
-        self.overview_tab = OverviewTab(self.bridge)
-        self.episodic_tab = EpisodicTab(self.bridge)
-        self.semantic_tab = SemanticTab(self.bridge)
-        self.procedural_tab = ProceduralTab(self.bridge)
-        self.asset_tab = AssetTab(self.bridge)
-        self.graph_tab = GraphTab(self.bridge)
-        self.search_tab = SearchTab(self.bridge)
-        self.session_tab = SessionTab()
-        self.session_tab.busy_changed.connect(self._on_session_tab_busy_changed)
+        self._tab_attr_names = [
+            "overview_tab",
+            "session_tab",
+            "episodic_tab",
+            "semantic_tab",
+            "procedural_tab",
+            "asset_tab",
+            "graph_tab",
+            "search_tab",
+        ]
+        self._tab_factories = [
+            lambda: OverviewTab(self.bridge),
+            lambda: SessionTab(auto_scan=False),
+            lambda: EpisodicTab(self.bridge),
+            lambda: SemanticTab(self.bridge),
+            lambda: ProceduralTab(self.bridge),
+            lambda: AssetTab(self.bridge),
+            lambda: GraphTab(self.bridge),
+            lambda: SearchTab(self.bridge),
+        ]
+        self._tab_instances = [None] * len(self._tab_factories)
 
-        self.tabs.addTab(self.overview_tab, "总览")
-        self.tabs.addTab(self.session_tab, "会话记录")
-        self.tabs.addTab(self.episodic_tab, "会话摘要")
-        self.tabs.addTab(self.semantic_tab, "笔记")
-        self.tabs.addTab(self.procedural_tab, "偏好")
-        self.tabs.addTab(self.asset_tab, "资产")
-        self.tabs.addTab(self.graph_tab, "图谱")
-        self.tabs.addTab(self.search_tab, "搜索")
+        for meta in _TAB_META:
+            self.tabs.addTab(QWidget(), meta["label"])
         self.tabs.tabBar().hide()
         self.tabs.currentChanged.connect(self._on_tab_changed)
 
@@ -166,9 +180,35 @@ class MainWindow(QMainWindow):
 
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
+        self._ensure_tab(0)
         self._update_status()
         self._build_toast()
         self._on_tab_changed(0)
+
+    def _ensure_tab(self, index: int):
+        if index < 0 or index >= len(self._tab_factories):
+            return None
+        existing = self._tab_instances[index]
+        if existing is not None:
+            return existing
+
+        tab = self._tab_factories[index]()
+        if self._tab_attr_names[index] == "session_tab":
+            tab.busy_changed.connect(self._on_session_tab_busy_changed)
+
+        current_index = self.tabs.currentIndex()
+        old_widget = self.tabs.widget(index)
+        self.tabs.blockSignals(True)
+        self.tabs.removeTab(index)
+        self.tabs.insertTab(index, tab, _TAB_META[index]["label"])
+        self.tabs.setCurrentIndex(current_index)
+        self.tabs.blockSignals(False)
+        if old_widget is not None:
+            old_widget.deleteLater()
+
+        self._tab_instances[index] = tab
+        setattr(self, self._tab_attr_names[index], tab)
+        return tab
 
     def _build_sidebar(self) -> QWidget:
         sidebar = QFrame()
@@ -518,8 +558,11 @@ class MainWindow(QMainWindow):
     def _on_tab_changed(self, index: int):
         if index < 0 or index >= len(_TAB_META):
             return
+        self._ensure_tab(index)
         self._sync_nav_state()
         self._refresh_workspace_context()
+        if _TAB_META[index]["code"] == "CS" and not self.session_tab.has_loaded_data():
+            self.session_tab.refresh()
 
     def _build_export_menu(self, target: QToolButton):
         from .components.exporter import FORMATS, _EXT_MAP
@@ -632,16 +675,17 @@ class MainWindow(QMainWindow):
 
     def _collect_all_sessions(self) -> list:
         """收集所有框架的会话列表（含未缓存的框架）"""
+        session_tab = self._ensure_tab(1)
         all_sessions = []
         cached_fws = set()
-        for fw_key, sessions in self.session_tab._sessions_cache.items():
+        for fw_key, sessions in session_tab._sessions_cache.items():
             all_sessions.extend(sessions)
             cached_fws.add(fw_key)
-        for fw_key, sources in self.session_tab._fw_groups.items():
+        for fw_key, sources in session_tab._fw_groups.items():
             if fw_key not in cached_fws:
                 for source in sources:
                     try:
-                        sessions = self.session_tab.scanner.list_sessions(source)
+                        sessions = session_tab.scanner.list_sessions(source)
                         all_sessions.extend(sessions)
                     except Exception:
                         pass
@@ -674,8 +718,9 @@ class MainWindow(QMainWindow):
             if result:
                 self.status_bar.showMessage(f"已导出到: {result}", 5000)
         elif category == "sessions":
+            session_tab = self._ensure_tab(1)
             all_sessions = []
-            for fw_key, sessions in self.session_tab._sessions_cache.items():
+            for fw_key, sessions in session_tab._sessions_cache.items():
                 all_sessions.extend(sessions)
             if not all_sessions:
                 from PyQt5.QtWidgets import QMessageBox
@@ -762,13 +807,14 @@ class MainWindow(QMainWindow):
         from PyQt5.QtWidgets import QApplication
         QApplication.processEvents()
 
-        for i in range(self.tabs.count()):
-            tab = self.tabs.widget(i)
+        for tab in self._tab_instances:
+            if tab is None:
+                continue
             if hasattr(tab, "refresh"):
                 tab.refresh()
         self._update_status()
 
-        if not self.session_tab.is_busy():
+        if self.session_tab is None or not self.session_tab.is_busy():
             self._finish_global_refresh()
 
     def _on_session_tab_busy_changed(self, busy: bool):
@@ -863,8 +909,9 @@ class MainWindow(QMainWindow):
         self._toast_anim.start()
 
     def _on_search(self, query: str):
-        self.search_tab.do_search(query)
-        self.tabs.setCurrentWidget(self.search_tab)
+        search_tab = self._ensure_tab(7)
+        search_tab.do_search(query)
+        self.tabs.setCurrentWidget(search_tab)
 
     def _on_theme_change(self, theme_name: str):
         if theme_name not in THEMES:
@@ -877,8 +924,9 @@ class MainWindow(QMainWindow):
         self._apply_styles()
         self._refresh_toolbar()
         self._update_status()
-        for i in range(self.tabs.count()):
-            tab = self.tabs.widget(i)
+        for tab in self._tab_instances:
+            if tab is None:
+                continue
             if hasattr(tab, "refresh_style"):
                 tab.refresh_style()
             if hasattr(tab, "refresh"):

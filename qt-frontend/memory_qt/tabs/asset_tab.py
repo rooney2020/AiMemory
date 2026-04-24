@@ -2,9 +2,9 @@
 
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QLineEdit, QScrollArea, QFrame, QSplitter, QSizePolicy,
+    QLineEdit, QScrollArea, QFrame, QSplitter, QSizePolicy, QApplication,
 )
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QTimer, QEvent
 import subprocess
 import os
 
@@ -28,21 +28,24 @@ class AssetCard(QFrame):
         super().__init__(parent)
         self.asset = asset
         self._selected = False
+        self.setMinimumWidth(0)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self._build_ui()
         self._apply_style()
 
     def _build_ui(self):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(14, 10, 14, 10)
-        layout.setSpacing(6)
+        layout.setSpacing(4)
 
         top_row = QHBoxLayout()
         top_row.setSpacing(8)
 
         self.name_label = QLabel(self.asset.name)
         self.name_label.setFont(QFont("", 13, QFont.Bold))
-        top_row.addWidget(self.name_label)
-        top_row.addStretch()
+        self.name_label.setMinimumWidth(0)
+        self.name_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        top_row.addWidget(self.name_label, 1)
 
         self.type_badge = QLabel(self.asset.type.value)
         self.type_badge.setFixedHeight(20)
@@ -55,9 +58,12 @@ class AssetCard(QFrame):
         layout.addLayout(top_row)
 
         if self.asset.description:
-            self.desc_label = QLabel(self.asset.description)
-            self.desc_label.setWordWrap(True)
-            self.desc_label.setMaximumHeight(40)
+            self.desc_label = QLabel()
+            self.desc_label.setWordWrap(False)
+            self.desc_label.setMinimumWidth(0)
+            self.desc_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+            self.desc_label.setToolTip(self.asset.description)
+            self.desc_label.setText(self._elide_text(self.asset.description, 1))
             layout.addWidget(self.desc_label)
         else:
             self.desc_label = None
@@ -65,20 +71,48 @@ class AssetCard(QFrame):
         if self.asset.tags:
             tags_text = " ".join(f"#{t}" for t in self.asset.tags[:6])
             self.tags_label = QLabel(tags_text)
+            self.tags_label.setMinimumWidth(0)
+            self.tags_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
             layout.addWidget(self.tags_label)
         else:
             self.tags_label = None
 
         self.setCursor(Qt.PointingHandCursor)
-        self.setFixedHeight(100 if self.asset.description else 65)
+        self.setFixedHeight(84 if self.asset.description else 65)
+
+    def _elide_text(self, text: str, max_lines: int) -> str:
+        metrics = self.desc_label.fontMetrics() if self.desc_label else self.fontMetrics()
+        width = self.desc_label.width() if self.desc_label and self.desc_label.width() > 0 else self.width() - 28
+        width = max(180, width)
+        remaining = " ".join(text.split())
+        lines = []
+
+        for index in range(max_lines):
+            if not remaining:
+                break
+            if index == max_lines - 1:
+                lines.append(metrics.elidedText(remaining, Qt.ElideRight, width))
+                break
+
+            current = ""
+            for char in remaining:
+                if metrics.horizontalAdvance(current + char) > width:
+                    break
+                current += char
+            if not current:
+                current = remaining[0]
+            lines.append(current.rstrip())
+            remaining = remaining[len(current):].lstrip()
+
+        return "\n".join(lines)
 
     def _apply_style(self):
-        border_color = _rgba(C['blue'], 0.56) if self._selected else _rgba(C['surface2'], 0.38)
-        bg = _rgba(C['surface0'], 0.84) if self._selected else _rgba(C['base'], 0.96)
+        border_color = _rgba(C['blue'], 0.8) if self._selected else _rgba(C['surface2'], 0.38)
+        bg = _rgba(C['surface0'], 0.92) if self._selected else _rgba(C['base'], 0.96)
         self.setStyleSheet(f"""
             AssetCard {{
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                    stop:0 {bg}, stop:1 {_rgba(C['surface0'], 0.92)});
+                    stop:0 {bg}, stop:1 {_rgba(C['surface1'], 0.96) if self._selected else _rgba(C['surface0'], 0.92)});
                 border: 1px solid {border_color};
                 border-radius: 18px;
             }}
@@ -106,6 +140,7 @@ class AssetCard(QFrame):
 
         if self.desc_label:
             self.desc_label.setStyleSheet(f"color: {C['subtext0']}; font-size: 12px; border: none; background: transparent;")
+            self.desc_label.setMaximumHeight(self.desc_label.fontMetrics().lineSpacing() + 2)
         if self.tags_label:
             self.tags_label.setStyleSheet(f"color: {C['overlay1']}; font-size: 11px; border: none; background: transparent;")
 
@@ -115,6 +150,11 @@ class AssetCard(QFrame):
 
     def refresh_style(self):
         self._apply_style()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if self.desc_label:
+            self.desc_label.setText(self._elide_text(self.desc_label.toolTip(), 1))
 
     def mousePressEvent(self, event):
         super().mousePressEvent(event)
@@ -133,6 +173,7 @@ class AssetTab(QWidget):
         self._cards = []
         self._selected_card = None
         self._metric_values = {}
+        self._last_validation_summary = ""
         self._build_ui()
         self.refresh()
 
@@ -218,9 +259,17 @@ class AssetTab(QWidget):
         search_row.addWidget(self.refresh_btn)
         left_layout.addLayout(search_row)
 
+        self.validate_all_btn = QPushButton("验证全部资产")
+        self.validate_all_btn.setFixedHeight(34)
+        self.validate_all_btn.setToolTip("验证当前范围内的全部资产；未搜索时即为全部资产")
+        self.validate_all_btn.clicked.connect(self._validate_all_assets)
+
         scroll = QScrollArea()
+        self._list_scroll = scroll
         scroll.setWidgetResizable(True)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll.setViewportMargins(0, 0, 0, 0)
+        scroll.viewport().installEventFilter(self)
         scroll.setStyleSheet(f"""
             QScrollArea {{ background: transparent; border: none; }}
             QWidget#asset_list_container {{ background: transparent; }}
@@ -229,8 +278,8 @@ class AssetTab(QWidget):
         self.list_container = QWidget()
         self.list_container.setObjectName("asset_list_container")
         self.list_layout = QVBoxLayout(self.list_container)
-        self.list_layout.setContentsMargins(0, 4, 8, 4)
-        self.list_layout.setSpacing(10)
+        self.list_layout.setContentsMargins(0, 4, 10, 4)
+        self.list_layout.setSpacing(8)
         self.list_layout.addStretch()
         scroll.setWidget(self.list_container)
         left_layout.addWidget(scroll, 1)
@@ -313,7 +362,7 @@ class AssetTab(QWidget):
     def topbar_context_widgets(self):
         summary_widgets = [self._status_label]
         summary_widgets.extend(frame for frame, *_ in self._metric_values.values())
-        return summary_widgets, []
+        return summary_widgets, [self.validate_all_btn]
 
     def _build_metric_card(self, key: str, title: str, color_key: str) -> QFrame:
         frame = QFrame()
@@ -358,6 +407,7 @@ class AssetTab(QWidget):
         self._queue_hint.setStyleSheet(f"color: {C['subtext0']}; font-size: 12px; background: transparent; border: none;")
         self.search_input.setStyleSheet(lineedit_style())
         self.refresh_btn.setStyleSheet(secondary_btn_style())
+        self.validate_all_btn.setStyleSheet(primary_btn_style())
         self._right_panel.setStyleSheet(self._panel_style())
         self._detail_header.setStyleSheet(self._sub_panel_style())
         self._detail_kicker.setStyleSheet(f"color: {C['lavender']}; font-size: 11px; font-weight: 800; background: transparent; border: none;")
@@ -381,7 +431,10 @@ class AssetTab(QWidget):
         self._metric_values["valid"][2].setText(str(valid))
         self._metric_values["invalid"][2].setText(str(invalid))
         query = self.search_input.text().strip() or "全部资产"
-        self._status_label.setText(f"当前范围: {query} · {total} 条记录")
+        if self._last_validation_summary:
+            self._status_label.setText(f"当前范围: {query} · {total} 条记录 · {self._last_validation_summary}")
+        else:
+            self._status_label.setText(f"当前范围: {query} · {total} 条记录")
 
     def refresh_style(self):
         self._apply_shell_styles()
@@ -424,7 +477,29 @@ class AssetTab(QWidget):
             self.open_btn.setEnabled(False)
             self.delete_btn.setEnabled(False)
 
+        QTimer.singleShot(0, self._sync_card_widths)
         self._update_summary()
+
+    def _sync_card_widths(self):
+        if not hasattr(self, "_list_scroll"):
+            return
+
+        margins = self.list_layout.contentsMargins()
+        available_width = self._list_scroll.viewport().width() - margins.left() - margins.right()
+        if available_width <= 0:
+            return
+
+        for card in self._cards:
+            card.setFixedWidth(available_width)
+
+    def eventFilter(self, watched, event):
+        if hasattr(self, "_list_scroll") and watched is self._list_scroll.viewport() and event.type() == QEvent.Resize:
+            QTimer.singleShot(0, self._sync_card_widths)
+        return super().eventFilter(watched, event)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        QTimer.singleShot(0, self._sync_card_widths)
 
     def _select_asset(self, card):
         if self._selected_card:
@@ -487,7 +562,26 @@ class AssetTab(QWidget):
         if self._selected_card:
             asset = self._selected_card.asset
             self.bridge.validate_asset(asset.id)
+            self._last_validation_summary = f"已验证 1 条 · {asset.name}"
             self.refresh()
+
+    def _validate_all_assets(self):
+        if not self._assets:
+            self._last_validation_summary = "没有可验证的资产"
+            self._update_summary()
+            return
+
+        self.validate_all_btn.setEnabled(False)
+        self.validate_btn.setEnabled(False)
+        self.open_btn.setEnabled(False)
+        self.delete_btn.setEnabled(False)
+        QApplication.processEvents()
+
+        summary = self.bridge.validate_assets([asset.id for asset in self._assets])
+        self._last_validation_summary = (
+            f"已验证 {summary['total']} 条 · 有效 {summary['valid']} · 失效 {summary['invalid']}"
+        )
+        self.refresh()
 
     def _delete_selected(self):
         if self._selected_card:

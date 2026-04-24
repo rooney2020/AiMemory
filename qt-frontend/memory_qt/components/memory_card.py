@@ -34,6 +34,7 @@ class MemoryCard(QFrame):
         super().__init__(parent)
         self.memory_id = memory.id
         self._selectable = False
+        self._selected = False
         self.setCursor(Qt.PointingHandCursor)
         self.setProperty("card", True)
 
@@ -83,21 +84,52 @@ class MemoryCard(QFrame):
         layout.addLayout(top)
 
         summary = memory.summary or memory.content[:80]
-        summary_label = QLabel(summary)
-        summary_label.setWordWrap(True)
-        summary_label.setStyleSheet(
+        self.summary_label = QLabel()
+        self.summary_label.setWordWrap(True)
+        self.summary_label.setToolTip(summary)
+        self.summary_label.setText(self._elide_text(summary, 2))
+        self.summary_label.setStyleSheet(
             f"color: {C['text']}; font-size: 13px; font-weight: 700; border: none; background: transparent;"
         )
-        layout.addWidget(summary_label)
+        layout.addWidget(self.summary_label)
 
         if memory.project:
-            proj_label = QLabel(f"@ {memory.project}")
-            proj_label.setStyleSheet(
+            self.proj_label = QLabel()
+            self.proj_label.setToolTip(memory.project)
+            self.proj_label.setText(self._elide_text(f"@ {memory.project}", 1))
+            self.proj_label.setStyleSheet(
                 f"color: {C['subtext0']}; font-size: 11px; border: none; background: transparent;"
             )
-            layout.addWidget(proj_label)
+            layout.addWidget(self.proj_label)
+        else:
+            self.proj_label = None
 
         self._apply_style()
+
+    def _elide_text(self, text: str, max_lines: int) -> str:
+        metrics = self.fontMetrics()
+        width = max(180, self.width() - 32)
+        remaining = " ".join(text.split())
+        lines = []
+
+        for index in range(max_lines):
+            if not remaining:
+                break
+            if index == max_lines - 1:
+                lines.append(metrics.elidedText(remaining, Qt.ElideRight, width))
+                break
+
+            current = ""
+            for char in remaining:
+                if metrics.horizontalAdvance(current + char) > width:
+                    break
+                current += char
+            if not current:
+                current = remaining[0]
+            lines.append(current.rstrip())
+            remaining = remaining[len(current):].lstrip()
+
+        return "\n".join(lines)
 
     def set_selectable(self, on: bool):
         self._selectable = on
@@ -111,16 +143,29 @@ class MemoryCard(QFrame):
     def set_checked(self, checked: bool):
         self._checkbox.setChecked(checked)
 
+    def set_selected(self, selected: bool):
+        self._selected = selected
+        self._apply_style()
+
     def _apply_style(self):
+        border = _rgba(C['blue'], 0.72) if self._selected else _rgba(C['surface2'], 0.38)
+        bg_start = _rgba(C['surface0'], 0.9) if self._selected else _rgba(C['base'], 0.98)
+        bg_end = _rgba(C['surface1'], 0.96) if self._selected else _rgba(C['surface0'], 0.92)
         self.setStyleSheet(f"""
             QFrame {{
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                    stop:0 {_rgba(C['base'], 0.98)}, stop:1 {_rgba(C['surface0'], 0.92)});
-                border: 1px solid {_rgba(C['surface2'], 0.38)};
+                    stop:0 {bg_start}, stop:1 {bg_end});
+                border: 1px solid {border};
                 border-radius: 18px;
             }}
             QFrame:hover {{ border-color: {_rgba(C['blue'], 0.62)}; }}
         """)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.summary_label.setText(self._elide_text(self.summary_label.toolTip(), 2))
+        if self.proj_label:
+            self.proj_label.setText(self._elide_text(self.proj_label.toolTip(), 1))
 
     def mousePressEvent(self, event):
         if self._selectable:

@@ -151,6 +151,7 @@ class AssetRegistry:
                 self._mark_invalid(asset_id, "源文件已变更")
                 return result
 
+        self._mark_valid(asset_id)
         return result
 
     def use(self, asset_id: str):
@@ -168,6 +169,13 @@ class AssetRegistry:
         self.db.execute(
             "UPDATE assets SET valid = 0, invalid_reason = ? WHERE id = ?",
             (reason, asset_id),
+        )
+        self.db.commit()
+
+    def _mark_valid(self, asset_id: str):
+        self.db.execute(
+            "UPDATE assets SET valid = 1, invalid_reason = NULL WHERE id = ?",
+            (asset_id,),
         )
         self.db.commit()
 

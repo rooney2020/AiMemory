@@ -31,6 +31,7 @@ class SemanticTab(QWidget):
         self._batch_mode = False
         self._selected_ids: set[str] = set()
         self._cards: list[MemoryCard] = []
+        self._selected_memory_id: str | None = None
         self._current_project: str | None = None
         self._proj_buttons: dict[str, QPushButton] = {}
         self._metric_values = {}
@@ -349,7 +350,16 @@ class SemanticTab(QWidget):
             self._cards.append(card)
             self.list_layout.addWidget(card)
 
+        self._sync_selected_card()
+
         self.list_layout.addStretch()
+
+    def _sync_selected_card(self):
+        visible_ids = {mem.id for mem in self._memories}
+        if self._selected_memory_id not in visible_ids:
+            self._selected_memory_id = None
+        for card in self._cards:
+            card.set_selected(card.memory_id == self._selected_memory_id)
 
     def _toggle_batch_mode(self):
         self._batch_mode = not self._batch_mode
@@ -412,6 +422,8 @@ class SemanticTab(QWidget):
         self._update_summary()
 
     def _on_card_click(self, mem_id: str):
+        self._selected_memory_id = mem_id
+        self._sync_selected_card()
         for mem in self._memories:
             if mem.id == mem_id:
                 self.detail.show_memory(mem)
