@@ -43,11 +43,12 @@ class MemoryStore:
         self.db = db
         self.entity_store = EntityStore(db)
 
-    def save(self, memory: Memory) -> Memory:
+    def save(self, memory: Memory, preserve_timestamps: bool = False) -> Memory:
         now = datetime.now()
         if not memory.created_at:
             memory.created_at = now
-        memory.updated_at = now
+        if not preserve_timestamps or not memory.updated_at:
+            memory.updated_at = now
         memory.entities = self._normalize_entities(memory.entities)
         entities_json = json.dumps(memory.entities, ensure_ascii=False) if memory.entities else "[]"
         tags_json = json.dumps(memory.tags, ensure_ascii=False) if hasattr(memory, 'tags') and memory.tags else "[]"
@@ -59,15 +60,20 @@ class MemoryStore:
                 strength, access_count, last_accessed, decay_rate, archived
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
+                type=excluded.type,
                 content=excluded.content,
                 summary=excluded.summary,
                 embedding=excluded.embedding,
+                project=excluded.project,
+                session_id=excluded.session_id,
                 entities=excluded.entities,
                 tags=excluded.tags,
+                created_at=excluded.created_at,
                 updated_at=excluded.updated_at,
                 strength=excluded.strength,
                 access_count=excluded.access_count,
                 last_accessed=excluded.last_accessed,
+                decay_rate=excluded.decay_rate,
                 archived=excluded.archived
         """, (
             memory.id, memory.type.value, memory.content, memory.summary,

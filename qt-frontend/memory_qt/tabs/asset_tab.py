@@ -506,14 +506,19 @@ class AssetTab(QWidget):
             self._selected_card.set_selected(False)
         card.set_selected(True)
         self._selected_card = card
-        self.validate_btn.setEnabled(True)
-        self.open_btn.setEnabled(True)
-        self.delete_btn.setEnabled(True)
+        asset = card.asset
+        is_remote_synced = bool(getattr(asset, "remote_synced", False))
+        self.validate_btn.setEnabled(not is_remote_synced)
+        self.open_btn.setEnabled(bool(asset.artifact_path and os.path.exists(asset.artifact_path)))
+        self.delete_btn.setEnabled(not is_remote_synced)
         self._show_detail(card.asset)
 
     def _show_detail(self, asset):
         self.detail_title.setText(asset.name)
-        self._detail_hint.setText(f"类型: {asset.type.value} · 状态: {'有效' if asset.valid else '失效'}")
+        hint_parts = [f"类型: {asset.type.value}", f"状态: {'有效' if asset.valid else '失效'}"]
+        if getattr(asset, "remote_synced", False):
+            hint_parts.append("来源: 同步缓存")
+        self._detail_hint.setText(" · ".join(hint_parts))
 
         size_str = "N/A"
         if asset.artifact_size:
@@ -541,6 +546,14 @@ class AssetTab(QWidget):
             lines.append(f"<br><b>标签：</b>{tags_html}")
         if asset.project:
             lines.append(f"<b>所属项目：</b>{asset.project}")
+        if getattr(asset, "remote_synced", False):
+            lines.append("<b>来源：</b>同步缓存（只读）")
+            remote_machine_id = getattr(asset, "remote_machine_id", "")
+            if remote_machine_id:
+                lines.append(f"<b>远端机器：</b>{remote_machine_id}")
+            remote_meta_path = getattr(asset, "remote_meta_path", "")
+            if remote_meta_path:
+                lines.append(f"<b>元数据：</b><code>{remote_meta_path}</code>")
         if asset.tool_name:
             version = f" v{asset.tool_version}" if asset.tool_version else ""
             lines.append(f"<b>工具：</b>{asset.tool_name}{version}")

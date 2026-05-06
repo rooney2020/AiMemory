@@ -1,0 +1,1004 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Memory 设置中心原型 V2</title>
+  <style>
+    :root {
+      --bg: #0a1322;
+      --bg-soft: #101b2d;
+      --panel: rgba(12, 24, 41, 0.92);
+      --panel-soft: rgba(18, 34, 56, 0.86);
+      --line: rgba(108, 141, 182, 0.18);
+      --line-strong: rgba(90, 214, 232, 0.34);
+      --text: #edf5ff;
+      --text-soft: #c6d6eb;
+      --text-muted: #7f97b5;
+      --blue: #65c9ff;
+      --teal: #4ddcc6;
+      --green: #52d089;
+      --yellow: #f1c468;
+      --radius-lg: 20px;
+      --radius-md: 16px;
+      --shadow: 0 24px 80px rgba(0, 0, 0, 0.3);
+      --font-ui: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      --font-mono: "JetBrains Mono", "Fira Code", monospace;
+    }
+
+    body[data-theme="mist"] {
+      --bg: #eef4fa;
+      --bg-soft: #f8fbfd;
+      --panel: rgba(255, 255, 255, 0.84);
+      --panel-soft: rgba(247, 250, 252, 0.96);
+      --line: rgba(119, 143, 175, 0.18);
+      --line-strong: rgba(48, 134, 231, 0.24);
+      --text: #16283f;
+      --text-soft: #47617d;
+      --text-muted: #7087a4;
+      --blue: #2f88e6;
+      --teal: #18b8a8;
+      --green: #1d9f72;
+      --yellow: #c79131;
+      --shadow: 0 22px 60px rgba(42, 67, 104, 0.12);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: var(--font-ui);
+      color: var(--text);
+      background:
+        radial-gradient(circle at 12% 12%, rgba(101, 201, 255, 0.14), transparent 28%),
+        radial-gradient(circle at 86% 18%, rgba(77, 220, 198, 0.12), transparent 22%),
+        linear-gradient(135deg, var(--bg) 0%, #0d1728 46%, var(--bg-soft) 100%);
+    }
+
+    .page {
+      width: min(1540px, calc(100% - 24px));
+      margin: 12px auto;
+      padding: 12px;
+      border-radius: 28px;
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(20px);
+    }
+
+    .shell {
+      display: grid;
+      grid-template-columns: 220px minmax(0, 1fr);
+      gap: 12px;
+      min-height: calc(100vh - 48px);
+    }
+
+    .sidebar,
+    .workspace,
+    .toolbar,
+    .section,
+    .field,
+    .status-card,
+    .device-panel,
+    .table-shell {
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      background: var(--panel);
+    }
+
+    .sidebar,
+    .workspace {
+      padding: 14px;
+    }
+
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .brand {
+      padding: 14px;
+      border-radius: 18px;
+      border: 1px solid var(--line-strong);
+      background: linear-gradient(135deg, rgba(101, 201, 255, 0.14), rgba(77, 220, 198, 0.06));
+    }
+
+    .brand-mark {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 42px;
+      height: 42px;
+      margin-bottom: 10px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, var(--blue), var(--teal));
+      color: #fff;
+      font-size: 16px;
+      font-weight: 800;
+    }
+
+    .brand-title {
+      font-size: 21px;
+      font-weight: 800;
+      line-height: 1.2;
+    }
+
+    .brand-subtitle {
+      margin-top: 8px;
+      font-size: 12px;
+      line-height: 1.6;
+      color: var(--text-muted);
+    }
+
+    .theme-row,
+    .action-row,
+    .stack-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .theme-btn,
+    .button,
+    .chip {
+      padding: 9px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.03);
+      color: var(--text-soft);
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .theme-btn.active,
+    .button.primary {
+      color: #fff;
+      border-color: transparent;
+      background: linear-gradient(135deg, var(--blue), var(--teal));
+    }
+
+    .button.ghost {
+      background: rgba(255,255,255,0.02);
+      color: var(--text-muted);
+    }
+
+    .sidebar-nav {
+      display: grid;
+      gap: 8px;
+    }
+
+    .nav-item {
+      padding: 12px 14px;
+      border-radius: 16px;
+      border: 1px solid transparent;
+      background: rgba(255,255,255,0.02);
+      text-align: left;
+      cursor: pointer;
+      color: var(--text-soft);
+    }
+
+    .nav-item.active {
+      border-color: var(--line-strong);
+      background: linear-gradient(135deg, rgba(101, 201, 255, 0.16), rgba(77, 220, 198, 0.06));
+      box-shadow: inset 3px 0 0 var(--blue);
+    }
+
+    .nav-title {
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--text-soft);
+    }
+
+    .nav-note {
+      margin-top: 4px;
+      font-size: 11px;
+      line-height: 1.5;
+      color: #9fb3cc;
+    }
+
+    .nav-item.active .nav-title {
+      color: var(--text);
+    }
+
+    .nav-item.active .nav-note {
+      color: var(--text-soft);
+    }
+
+    .workspace {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .toolbar {
+      padding: 14px 16px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      min-width: 0;
+    }
+
+    .toolbar-title {
+      font-size: 22px;
+      font-weight: 800;
+      line-height: 1.2;
+    }
+
+    .toolbar-subtitle {
+      margin-top: 6px;
+      font-size: 12px;
+      line-height: 1.6;
+      color: var(--text-muted);
+    }
+
+    .screen {
+      display: none;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .screen.active {
+      display: grid;
+    }
+
+    .section,
+    .status-card,
+    .device-panel,
+    .table-shell {
+      padding: 16px;
+      min-width: 0;
+    }
+
+    .section-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }
+
+    .section-title,
+    .status-title {
+      font-size: 16px;
+      font-weight: 800;
+    }
+
+    .field-group {
+      margin-top: 12px;
+      padding: 14px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.02);
+    }
+
+    .group-title {
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--text-soft);
+      margin-bottom: 10px;
+    }
+
+    .group-note {
+      margin-bottom: 12px;
+      font-size: 12px;
+      line-height: 1.55;
+      color: var(--text-muted);
+    }
+
+    .lock-banner {
+      margin-bottom: 12px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      border: 1px solid rgba(241, 196, 104, 0.22);
+      background: rgba(241, 196, 104, 0.08);
+      font-size: 12px;
+      line-height: 1.6;
+      color: var(--text-soft);
+    }
+
+    .login-state-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .state-switch {
+      display: inline-flex;
+      gap: 6px;
+      padding: 4px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.03);
+    }
+
+    .state-option {
+      padding: 8px 12px;
+      border: none;
+      border-radius: 999px;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .state-option.active {
+      color: #fff;
+      background: linear-gradient(135deg, var(--blue), var(--teal));
+    }
+
+    .section-note,
+    .status-text,
+    .subtext {
+      margin-top: 5px;
+      font-size: 12px;
+      line-height: 1.6;
+      color: var(--text-muted);
+    }
+
+    .grid.two,
+    .grid.three {
+      display: grid;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+    .field {
+      padding: 12px;
+      min-width: 0;
+    }
+
+    .field-label {
+      margin-bottom: 8px;
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--text-muted);
+    }
+
+    .value,
+    .select,
+    .input,
+    .badge-box {
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 12px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: var(--panel-soft);
+      color: var(--text);
+      font-size: 13px;
+      min-width: 0;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+
+    .field.locked .value,
+    .field.locked .select,
+    .field.locked .badge-box {
+      color: var(--text-muted);
+      background: rgba(255,255,255,0.02);
+      border-style: dashed;
+      opacity: 0.78;
+    }
+
+    .field.locked .field-label::after {
+      content: " · 已锁定";
+      color: var(--yellow);
+      font-weight: 700;
+    }
+
+    .repo-logged-out .field.locked .value,
+    .repo-logged-out .field.locked .select,
+    .repo-logged-out .field.locked .badge-box {
+      color: var(--text);
+      background: var(--panel-soft);
+      border-style: solid;
+      opacity: 1;
+    }
+
+    .repo-logged-out .field.locked .field-label::after {
+      content: "";
+    }
+
+    .repo-logged-out .lock-banner.logged-in,
+    .repo-logged-in .lock-banner.logged-out,
+    .repo-logged-in .login-only,
+    .repo-logged-out .logout-only,
+    .repo-logged-out .login-chip.logged-in,
+    .repo-logged-in .login-chip.logged-out {
+      display: none;
+    }
+
+    .mono {
+      font-family: var(--font-mono);
+      font-size: 12px;
+    }
+
+    .toggle-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .toggle {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      padding: 13px 14px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.03);
+    }
+
+    .toggle-title {
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .toggle-subtitle {
+      margin-top: 4px;
+      font-size: 11px;
+      line-height: 1.55;
+      color: var(--text-muted);
+    }
+
+    .switch {
+      position: relative;
+      width: 46px;
+      height: 28px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.1);
+      flex: none;
+    }
+
+    .switch::after {
+      content: "";
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.92);
+    }
+
+    .switch.on {
+      border-color: transparent;
+      background: linear-gradient(135deg, rgba(101, 201, 255, 0.8), rgba(77, 220, 198, 0.8));
+    }
+
+    .switch.on::after { transform: translateX(18px); }
+
+    .progress {
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.08);
+      overflow: hidden;
+      margin: 12px 0 10px;
+    }
+
+    .progress > span {
+      display: block;
+      height: 100%;
+      width: 62%;
+      background: linear-gradient(135deg, var(--blue), var(--teal));
+    }
+
+    table {
+      width: 100%;
+      table-layout: fixed;
+      border-collapse: collapse;
+      border-radius: 16px;
+      overflow: hidden;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--line);
+    }
+
+    th,
+    td {
+      padding: 12px 14px;
+      text-align: left;
+      font-size: 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      vertical-align: top;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+
+    th {
+      background: rgba(255,255,255,0.04);
+      color: var(--text-muted);
+      font-weight: 800;
+    }
+
+    tr.selected {
+      background: linear-gradient(135deg, rgba(101, 201, 255, 0.14), rgba(77, 220, 198, 0.05));
+    }
+
+    .device-edit {
+      margin-top: 12px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto;
+      gap: 8px;
+    }
+
+    .row-note-editor {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 8px;
+      align-items: center;
+    }
+
+    .device-badge {
+      display: inline-flex;
+      align-items: center;
+      margin-top: 6px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(101, 201, 255, 0.12);
+      color: var(--text-soft);
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .row-action-btn {
+      min-width: 92px;
+      min-height: 38px;
+      padding: 0 14px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      line-height: 1;
+    }
+
+    @media (max-width: 1080px) {
+      .page {
+        width: calc(100% - 14px);
+        margin: 7px auto;
+        padding: 8px;
+      }
+
+      .shell,
+      .grid.two,
+      .grid.three,
+      .toolbar,
+      .device-edit {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body data-theme="night">
+  <div class="page">
+    <div class="shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">AI</div>
+          <div class="brand-title">设置中心</div>
+          <div class="brand-subtitle">沿用当前左侧切页结构，默认停在同步相关页面。</div>
+        </div>
+
+        <div class="theme-row">
+          <button class="theme-btn active" data-theme-value="night">夜航</button>
+          <button class="theme-btn" data-theme-value="mist">薄雾</button>
+        </div>
+
+        <div class="sidebar-nav">
+          <button class="nav-item" data-screen="theme">
+            <div class="nav-title">主题与界面</div>
+            <div class="nav-note">主题、默认落点、紧凑度</div>
+          </button>
+          <button class="nav-item active" data-screen="repo">
+            <div class="nav-title">仓库配置</div>
+            <div class="nav-note">同步引擎、仓库、认证、设备</div>
+          </button>
+          <button class="nav-item" data-screen="rules">
+            <div class="nav-title">同步规则</div>
+            <div class="nav-note">大小阈值、白黑名单、切片</div>
+          </button>
+          <button class="nav-item" data-screen="status">
+            <div class="nav-title">同步状态</div>
+            <div class="nav-note">进度、队列、上次同步</div>
+          </button>
+          <button class="nav-item" data-screen="data">
+            <div class="nav-title">数据导入导出</div>
+            <div class="nav-note">导入、导出、配置快照</div>
+          </button>
+        </div>
+      </aside>
+
+      <main class="workspace">
+        <section class="toolbar">
+          <div>
+            <div class="toolbar-title">设置中心</div>
+            <div class="toolbar-subtitle">同步页默认展开仓库配置，底部延续设备列表与备注编辑。</div>
+          </div>
+          <div class="action-row">
+            <div class="button">恢复默认</div>
+            <div class="button">导出配置</div>
+            <div class="button primary">保存同步设置</div>
+          </div>
+        </section>
+
+        <section class="screen" data-panel="theme">
+          <div class="section">
+            <div class="section-head">
+              <div>
+                <div class="section-title">主题与界面</div>
+                <div class="section-note">保留当前设置中心页签形态，只展示真实可见项。</div>
+              </div>
+            </div>
+            <div class="grid three">
+              <div class="field">
+                <div class="field-label">当前主题</div>
+                <div class="select">科技清爽 · 夜航</div>
+              </div>
+              <div class="field">
+                <div class="field-label">默认落点</div>
+                <div class="select">设置 / 仓库配置</div>
+              </div>
+              <div class="field">
+                <div class="field-label">界面紧凑度</div>
+                <div class="select">中等</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="screen active repo-logged-in" data-panel="repo" id="repo-panel">
+          <div class="grid two">
+            <div class="section" style="grid-column: 1 / -1;">
+              <div class="section-head">
+                <div>
+                  <div class="section-title">仓库与认证</div>
+                  <div class="section-note">基础字段按当前设置内容分组排布，保留桌面应用的填写节奏。</div>
+                </div>
+                <div class="stack-row">
+                    <div class="chip login-chip logged-in">GitHub 已登录</div>
+                    <div class="chip login-chip logged-out">GitHub 未登录</div>
+                  <div class="chip">定时同步中</div>
+                </div>
+              </div>
+              <div class="login-state-row">
+                <div class="state-switch">
+                  <button class="state-option active" data-login-state="logged-in">已登录</button>
+                  <button class="state-option" data-login-state="logged-out">未登录</button>
+                </div>
+              </div>
+              <div class="lock-banner logged-in">当前处于已登录状态。同步引擎、仓库、分支、认证方式、OAuth Client ID 和登录用户信息均不可直接修改；需要先退出登录，再调整配置并重新登录。</div>
+              <div class="lock-banner logged-out">当前处于未登录状态。你可以修改仓库与认证相关配置，确认无误后再执行 GitHub 登录。</div>
+              <div class="field-group">
+                <div class="group-title">登录后锁定配置</div>
+                <div class="group-note">这些配置会和当前登录态绑定。处于已登录状态时，需要先退出登录，才能改动后重新登录。</div>
+                <div class="grid two">
+                  <div class="field locked">
+                    <div class="field-label">同步引擎</div>
+                    <div class="select">Git 工作区 + git push</div>
+                  </div>
+                  <div class="field locked">
+                    <div class="field-label">仓库所有者</div>
+                    <div class="value mono">rooney2020</div>
+                  </div>
+                  <div class="field locked">
+                    <div class="field-label">仓库名称</div>
+                    <div class="value mono">AiMemoryDataCenter</div>
+                  </div>
+                  <div class="field locked">
+                    <div class="field-label">分支</div>
+                    <div class="value mono">main</div>
+                  </div>
+                  <div class="field locked">
+                    <div class="field-label">认证方式</div>
+                    <div class="select">GitHub 登录（OAuth Device Flow）</div>
+                  </div>
+                  <div class="field locked">
+                    <div class="field-label">OAuth Client ID</div>
+                    <div class="value mono">Ov23liXb3YfZCF6gEKmE</div>
+                  </div>
+                  <div class="field locked" style="grid-column: 1 / -1;">
+                    <div class="field-label">GitHub 已登录用户</div>
+                    <div class="badge-box mono" id="login-user-value">rooney2020</div>
+                  </div>
+                </div>
+              </div>
+              <div class="action-row" style="margin-top: 12px;">
+                <div class="button login-only">GitHub 登录</div>
+                <div class="button primary logout-only">退出登录</div>
+                <div class="button ghost logout-only">已登录时配置锁定</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-head">
+              <div>
+                <div class="section-title">可直接调整</div>
+                <div class="section-note">这组参数不和登录身份强绑定，独立放在下方区域，避免和锁定配置混在一起。</div>
+              </div>
+            </div>
+            <div class="grid two">
+              <div class="field">
+                <div class="field-label">同步模式</div>
+                <div class="select">定时同步</div>
+              </div>
+              <div class="field">
+                <div class="field-label">定时间隔</div>
+                <div class="value">10 分钟</div>
+              </div>
+              <div class="field">
+                <div class="field-label">机器标识</div>
+                <div class="value mono">tsdl-hp-elitedesk-880-g6-tower-pc-linux</div>
+              </div>
+              <div class="field">
+                <div class="field-label">工作区路径</div>
+                <div class="value mono">~/.local/share/ai-memory/sync-worktree</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="device-panel">
+            <div class="section-head">
+              <div>
+                <div class="section-title">设备列表</div>
+                <div class="section-note">沿用当前同步页内容位置，把列表、备注输入和操作按钮合为一组。</div>
+              </div>
+              <div class="action-row">
+                <div class="button">刷新设备列表</div>
+              </div>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 28%;">设备标识</th>
+                  <th style="width: 24%;">来源</th>
+                  <th style="width: 18%;">最近活跃</th>
+                  <th style="width: 20%;">备注</th>
+                  <th style="width: 10%;">操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="selected">
+                  <td>
+                    <span class="mono">tsdl-hp-elitedesk-880-g6-tower-pc-linux</span>
+                    <div class="device-badge">当前设备</div>
+                  </td>
+                  <td>当前配置、git 工作区提交</td>
+                  <td>2026-04-29 10:26:17</td>
+                  <td>
+                    <div class="row-note-editor">
+                      <div class="input">Ubuntu / 办公室主机</div>
+                    </div>
+                  </td>
+                  <td><div class="button primary row-action-btn">保存备注</div></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="screen" data-panel="rules">
+          <div class="grid two">
+            <div class="section">
+              <div class="section-head">
+                <div>
+                  <div class="section-title">上传规则</div>
+                  <div class="section-note">只保留规则本体，不额外展示说明性页面。</div>
+                </div>
+              </div>
+              <div class="grid two">
+                <div class="field">
+                  <div class="field-label">文件上传大小限制</div>
+                  <div class="select">10 MB</div>
+                </div>
+                <div class="field">
+                  <div class="field-label">超限处理</div>
+                  <div class="select">提示用户决定</div>
+                </div>
+                <div class="field">
+                  <div class="field-label">资产口径</div>
+                  <div class="select">按整个资产目录大小计算</div>
+                </div>
+                <div class="field">
+                  <div class="field-label">切片大小</div>
+                  <div class="value mono">32 MB</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="section">
+              <div class="section-head">
+                <div>
+                  <div class="section-title">开关项</div>
+                </div>
+              </div>
+              <div class="toggle-list">
+                <div class="toggle">
+                  <div>
+                    <div class="toggle-title">上传原始会话文件</div>
+                    <div class="toggle-subtitle">当前主线能力</div>
+                  </div>
+                  <div class="switch on"></div>
+                </div>
+                <div class="toggle">
+                  <div>
+                    <div class="toggle-title">上传托管资产</div>
+                    <div class="toggle-subtitle">当前配置关闭</div>
+                  </div>
+                  <div class="switch"></div>
+                </div>
+                <div class="toggle">
+                  <div>
+                    <div class="toggle-title">允许上传敏感会话</div>
+                    <div class="toggle-subtitle">已开启</div>
+                  </div>
+                  <div class="switch on"></div>
+                </div>
+                <div class="toggle">
+                  <div>
+                    <div class="toggle-title">压缩上传</div>
+                    <div class="toggle-subtitle">已开启</div>
+                  </div>
+                  <div class="switch on"></div>
+                </div>
+                <div class="toggle">
+                  <div>
+                    <div class="toggle-title">大会话切片</div>
+                    <div class="toggle-subtitle">纳入原型布局</div>
+                  </div>
+                  <div class="switch on"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-head">
+              <div>
+                <div class="section-title">白名单 / 黑名单</div>
+              </div>
+            </div>
+            <div class="grid two">
+              <div class="field">
+                <div class="field-label">白名单</div>
+                <div class="value mono">*.jsonl</div>
+              </div>
+              <div class="field">
+                <div class="field-label">黑名单</div>
+                <div class="value mono">当前为空</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="screen" data-panel="status">
+          <div class="grid two">
+            <div class="section">
+              <div class="section-head">
+                <div>
+                  <div class="section-title">同步记录</div>
+                  <div class="section-note">按时间和内容展示最近几次同步动作，避免只看到一个时间戳。</div>
+                </div>
+              </div>
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width: 24%;">时间</th>
+                    <th style="width: 48%;">内容</th>
+                    <th style="width: 28%;">结果</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr class="selected">
+                    <td class="mono">2026-04-29 10:26:17</td>
+                    <td>同步完成：推送记忆 237 条、原始会话 101 份，跳过资产上传。</td>
+                    <td>成功</td>
+                  </tr>
+                  <tr>
+                    <td class="mono">2026-04-29 10:16:11</td>
+                    <td>同步启动：扫描白名单 *.jsonl，按 10MB 阈值检查本轮待上传文件。</td>
+                    <td>进行后完成</td>
+                  </tr>
+                  <tr>
+                    <td class="mono">2026-04-29 10:05:58</td>
+                    <td>检测到机器备注更新：设备 tsdl-hp-elitedesk-880-g6-tower-pc-linux 已写入新备注。</td>
+                    <td>成功</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="section">
+              <div class="section-head">
+                <div>
+                  <div class="section-title">当前概览</div>
+                </div>
+                <div class="action-row">
+                  <div class="button primary">立即同步</div>
+                </div>
+              </div>
+              <div class="status-card" style="padding: 12px;">
+                <div class="status-title">当前进度</div>
+                <div class="status-text">队列进度 62%，已上传 17 项，剩余 11 项。</div>
+                <div class="progress"><span></span></div>
+                <div class="subtext">provider：git_worktree。当前仓库与认证均已就绪，允许定时同步。</div>
+              </div>
+              <div class="table-shell" style="margin-top: 12px;">
+                <div class="status-title">待同步摘要</div>
+                <div class="subtext">会话 101 项，记忆 237 项，资产 0 项。</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="screen" data-panel="data">
+          <div class="grid three">
+            <div class="section">
+              <div class="section-title">导入 ZIP</div>
+              <div class="section-note">导入记忆与配置快照。</div>
+              <div class="action-row" style="margin-top: 10px;"><div class="button primary">选择文件</div></div>
+            </div>
+            <div class="section">
+              <div class="section-title">分类导出</div>
+              <div class="section-note">按会话、记忆、配置分别导出。</div>
+              <div class="action-row" style="margin-top: 10px;"><div class="button">打开导出菜单</div></div>
+            </div>
+            <div class="section">
+              <div class="section-title">配置快照</div>
+              <div class="section-note">仅导出设置中心配置。</div>
+              <div class="action-row" style="margin-top: 10px;"><div class="button">导出 JSON</div></div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    const navItems = document.querySelectorAll('.nav-item');
+    const screens = document.querySelectorAll('.screen');
+    navItems.forEach((item) => {
+      item.addEventListener('click', () => {
+        const target = item.getAttribute('data-screen');
+        navItems.forEach((button) => button.classList.toggle('active', button === item));
+        screens.forEach((screen) => screen.classList.toggle('active', screen.getAttribute('data-panel') === target));
+      });
+    });
+
+    const themeButtons = document.querySelectorAll('.theme-btn');
+    themeButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        const nextTheme = button.getAttribute('data-theme-value');
+        document.body.setAttribute('data-theme', nextTheme);
+        themeButtons.forEach((item) => item.classList.toggle('active', item === button));
+      });
+    });
+
+    const repoPanel = document.getElementById('repo-panel');
+    const stateButtons = document.querySelectorAll('[data-login-state]');
+    const loginUserValue = document.getElementById('login-user-value');
+    stateButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        const nextState = button.getAttribute('data-login-state');
+        repoPanel.classList.toggle('repo-logged-in', nextState === 'logged-in');
+        repoPanel.classList.toggle('repo-logged-out', nextState === 'logged-out');
+        loginUserValue.textContent = nextState === 'logged-in' ? 'rooney2020' : '登录后显示用户';
+        stateButtons.forEach((item) => item.classList.toggle('active', item === button));
+      });
+    });
+  </script>
+</body>
+</html>

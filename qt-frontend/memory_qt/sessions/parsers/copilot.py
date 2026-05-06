@@ -7,12 +7,15 @@ import json
 from pathlib import Path
 import re
 
+from ai_memory.config import load_config
+
 from .base import BaseParser
 from ..models import FrameworkType, SessionSource, SessionInfo, SessionMessage
 
 _WORKSPACE_STORAGE = (
     Path.home() / ".config" / "Code" / "User" / "workspaceStorage"
 )
+_SYNCED_COPILOT = load_config().readable_path / "synced-sessions" / "copilot"
 
 _NOISY_TOOL_IDS = {
     "copilot_getErrors",
@@ -128,30 +131,68 @@ class CopilotParser(BaseParser):
 
     def detect(self) -> list[SessionSource]:
         sources = []
-        if not _WORKSPACE_STORAGE.is_dir():
-            return sources
+        if _WORKSPACE_STORAGE.is_dir():
+            total = 0
+            for ws_dir in _WORKSPACE_STORAGE.iterdir():
+                chat_dir = ws_dir / "chatSessions"
+                if chat_dir.is_dir():
+                    for jsonl_file in chat_dir.glob("*.jsonl"):
+                        title, first_msg, msg_count = _peek_jsonl(jsonl_file)
+                        if _is_valid_session(title, first_msg, msg_count):
+                            total += 1
 
-        total = 0
-        for ws_dir in _WORKSPACE_STORAGE.iterdir():
-            chat_dir = ws_dir / "chatSessions"
-            if chat_dir.is_dir():
-                for jsonl_file in chat_dir.glob("*.jsonl"):
-                    title, first_msg, msg_count = _peek_jsonl(jsonl_file)
-                    if _is_valid_session(title, first_msg, msg_count):
-                        total += 1
+            if total > 0:
+                sources.append(SessionSource(
+                    framework=FrameworkType.COPILOT,
+                    base_path=_WORKSPACE_STORAGE,
+                    session_count=total,
+                    workspace_name="VS Code",
+                ))
 
-        if total > 0:
-            sources.append(SessionSource(
-                framework=FrameworkType.COPILOT,
-                base_path=_WORKSPACE_STORAGE,
-                session_count=total,
-                workspace_name="VS Code",
-            ))
+        if _SYNCED_COPILOT.is_dir():
+            for machine_dir in sorted(_SYNCED_COPILOT.iterdir()):
+                if not machine_dir.is_dir():
+                    continue
+                files = [path for path in machine_dir.glob("*.jsonl") if path.is_file()]
+                if not files:
+                    continue
+                sources.append(SessionSource(
+                    framework=FrameworkType.COPILOT,
+                    base_path=machine_dir,
+                    session_count=len(files),
+                    workspace_name=f"同步/{machine_dir.name}",
+                ))
 
         return sources
 
     def list_sessions(self, source: SessionSource) -> list[SessionInfo]:
         sessions = []
+
+        if source.base_path != _WORKSPACE_STORAGE:
+            for jsonl_file in sorted(source.base_path.glob("*.jsonl"), reverse=True):
+                mtime = self._safe_stat_mtime(jsonl_file)
+                title, requests = _load_requests(jsonl_file)
+                messages = _messages_from_requests(requests)
+                first_msg = next((msg.content for msg in messages if msg.role == "user" and msg.content), None)
+                msg_count = len(messages)
+                if not title and first_msg:
+                    title = first_msg[:40]
+                if not _is_valid_session(title, first_msg, msg_count):
+                    continue
+                sessions.append(SessionInfo(
+                    id=jsonl_file.stem,
+                    framework=FrameworkType.COPILOT,
+                    title=title,
+                    workspace=source.workspace_name,
+                    file_path=jsonl_file,
+                    created_at=mtime,
+                    updated_at=mtime,
+                    message_count=msg_count,
+                    first_user_message=first_msg,
+                ))
+
+            sessions.sort(key=lambda s: s.updated_at or s.created_at or __import__("datetime").datetime.min, reverse=True)
+            return sessions
 
         for ws_dir in sorted(source.base_path.iterdir(), reverse=True):
             chat_dir = ws_dir / "chatSessions"

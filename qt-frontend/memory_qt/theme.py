@@ -1,14 +1,41 @@
 """主题系统 — QPalette + QSS 样式生成"""
 
+from pathlib import Path
+
 from PyQt5.QtGui import QPalette, QColor
 from PyQt5.QtWidgets import QApplication
 
 from .constants import C, THEMES, FONT_CJK, FONT_MONO
 
 
+_RESOURCE_DIR = Path(__file__).resolve().parent / "resources"
+_COMBO_ARROW_PATH = (_RESOURCE_DIR / "chevron-down.svg").resolve().as_posix()
+_SPIN_UP_ARROW_PATH = (_RESOURCE_DIR / "chevron-up.svg").resolve().as_posix()
+_SPIN_DOWN_ARROW_PATH = (_RESOURCE_DIR / "chevron-down.svg").resolve().as_posix()
+
+
+def _sync_theme_vector_assets():
+    _write_chevron_svg(_RESOURCE_DIR / "chevron-down.svg", "M2.25 4.5L6 8.25L9.75 4.5")
+    _write_chevron_svg(_RESOURCE_DIR / "chevron-up.svg", "M2.25 7.5L6 3.75L9.75 7.5")
+
+
+def _write_chevron_svg(path: Path, path_data: str):
+    svg = (
+        '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12" fill="none">\n'
+        f'  <path d="{path_data}" stroke="{C["blue"]}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>\n'
+        '</svg>\n'
+    )
+    try:
+        if not path.exists() or path.read_text(encoding="utf-8") != svg:
+            path.write_text(svg, encoding="utf-8")
+    except OSError:
+        pass
+
+
 def apply_theme(theme_name: str):
     """切换主题：更新 C 字典 + QPalette"""
     C.update(THEMES[theme_name])
+    _sync_theme_vector_assets()
     app = QApplication.instance()
     if app:
         _apply_palette(app)
@@ -196,16 +223,28 @@ def global_style() -> str:
     QMenuBar::item {{ padding: 6px 12px; border-radius: 10px; }}
     QMenuBar::item:selected {{ background: {_bg('surface0', 0.65)}; }}
     QComboBox {{
-        background: {_panel_gradient('base', 'surface0', 0.96, 0.92)}; color: {C['text']};
+        background: {_panel_gradient('surface1', 'surface0', 0.96, 0.92)}; color: {C['text']};
         border: 1px solid {_bg('surface2', 0.6)}; border-radius: 14px;
-        padding: 7px 12px; font-size: 13px;
+        padding: 7px 38px 7px 12px; font-size: 13px;
     }}
     QComboBox:hover {{ border-color: {_bg('blue', 0.75)}; }}
     QComboBox::drop-down {{
-        border: none; width: 20px;
+        subcontrol-origin: padding;
+        subcontrol-position: top right;
+        width: 28px;
+        border: none;
+        border-left: 1px solid {_bg('surface2', 0.4)};
+        background: transparent;
+        border-top-right-radius: 12px;
+        border-bottom-right-radius: 12px;
+    }}
+    QComboBox::down-arrow {{
+        image: url({_COMBO_ARROW_PATH});
+        width: 12px;
+        height: 12px;
     }}
     QComboBox QAbstractItemView {{
-        background: {_panel_gradient('base', 'surface0', 0.98, 0.96)}; color: {C['text']};
+        background: {_panel_gradient('surface1', 'surface0', 0.98, 0.96)}; color: {C['text']};
         border: 1px solid {_bg('surface2', 0.55)}; border-radius: 12px;
         selection-background-color: {_bg('blue', 0.12)};
         selection-color: {C['text']};
@@ -304,7 +343,7 @@ def card_style() -> str:
 def lineedit_style() -> str:
     return f"""
     QLineEdit {{
-        background: {_panel_gradient('base', 'surface0', 0.98, 0.94)}; color: {C['text']};
+        background: {_panel_gradient('surface1', 'surface0', 0.96, 0.92)}; color: {C['text']};
         border: 1px solid {_bg('surface2', 0.55)}; border-radius: 14px;
         padding: 8px 14px; font-size: 13px;
         selection-background-color: {C['blue']};
@@ -312,6 +351,42 @@ def lineedit_style() -> str:
     }}
     QLineEdit:hover {{ border-color: {_bg('blue', 0.55)}; }}
     QLineEdit:focus {{ border: 1px solid {_bg('blue', 0.82)}; }}
+    """
+
+
+def spinbox_style() -> str:
+    return f"""
+    QSpinBox {{
+        background: {_panel_gradient('surface1', 'surface0', 0.96, 0.92)}; color: {C['text']};
+        border: 1px solid {_bg('surface2', 0.55)}; border-radius: 14px;
+        padding: 8px 38px 8px 14px; font-size: 13px;
+        selection-background-color: {C['blue']};
+        selection-color: white;
+    }}
+    QSpinBox:hover {{ border-color: {_bg('blue', 0.55)}; }}
+    QSpinBox:focus {{ border: 1px solid {_bg('blue', 0.82)}; }}
+    QSpinBox::up-button, QSpinBox::down-button {{
+        subcontrol-origin: border;
+        subcontrol-position: center right;
+        width: 20px;
+        border: none;
+        background: transparent;
+        margin-right: 8px;
+    }}
+    QSpinBox::up-button {{
+        subcontrol-position: top right;
+        height: 16px;
+        margin-top: 5px;
+        margin-bottom: 1px;
+    }}
+    QSpinBox::down-button {{
+        subcontrol-position: bottom right;
+        height: 16px;
+        margin-top: 1px;
+        margin-bottom: 5px;
+    }}
+    QSpinBox::up-arrow {{ image: url({_SPIN_UP_ARROW_PATH}); width: 10px; height: 10px; }}
+    QSpinBox::down-arrow {{ image: url({_SPIN_DOWN_ARROW_PATH}); width: 10px; height: 10px; }}
     """
 
 
@@ -339,7 +414,7 @@ def table_style() -> str:
 def tree_style() -> str:
     return f"""
     QTreeWidget {{
-        background: {_panel_gradient('base', 'surface0', 0.98, 0.92)}; color: {C['text']};
+        background: {_panel_gradient('surface1', 'surface0', 0.96, 0.92)}; color: {C['text']};
         border: 1px solid {_bg('surface2', 0.45)}; border-radius: 16px;
         outline: none; font-size: 13px;
     }}
@@ -348,8 +423,9 @@ def tree_style() -> str:
     QTreeWidget::item:selected {{
         background: {_bg('blue', 0.2)}; color: {C['text']};
     }}
-    QTreeWidget::branch:selected,
-    QTreeWidget::branch:has-siblings:selected,
+    QTreeWidget::branch:selected {{
+        background: transparent;
+    }}
     QTreeWidget::branch:!has-siblings:selected {{
         background: {_bg('blue', 0.2)};
     }}
@@ -359,11 +435,12 @@ def tree_style() -> str:
 def list_style() -> str:
     return f"""
     QListWidget {{
-        background: {_panel_gradient('base', 'surface0', 0.98, 0.92)}; color: {C['text']};
+        background: {_panel_gradient('surface1', 'surface0', 0.96, 0.92)}; color: {C['text']};
         border: 1px solid {_bg('surface2', 0.45)}; border-radius: 16px;
         outline: none; font-size: 13px; padding: 4px;
     }}
     QListWidget::item {{
+        background: {_panel_gradient('surface1', 'surface0', 0.98, 0.96)}; color: {C['text']};
         padding: 8px 12px; border-radius: 10px; margin: 2px;
     }}
     QListWidget::item:hover {{ background: {_bg('surface0', 0.72)}; }}
@@ -395,6 +472,32 @@ def secondary_btn_style() -> str:
     }}
     QPushButton:hover {{ border-color: {_bg('blue', 0.46)}; background: {_bg('surface0', 0.76)}; }}
     QPushButton:pressed {{ background: {_bg('surface1', 0.88)}; }}
+    """
+
+
+def sync_action_btn_style() -> str:
+    return f"""
+    QPushButton {{
+        background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+            stop:0 {_bg('blue', 0.2)}, stop:1 {_bg('teal', 0.24)});
+        color: {C['text']};
+        border: 1px solid {_bg('blue', 0.45)};
+        border-radius: 16px;
+        padding: 10px 18px;
+        font-size: 13px;
+        font-weight: 800;
+    }}
+    QPushButton:hover {{
+        background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+            stop:0 {_bg('blue', 0.32)}, stop:1 {_bg('teal', 0.36)});
+        border-color: {_bg('teal', 0.62)};
+    }}
+    QPushButton:pressed {{ background: {_bg('surface1', 0.9)}; }}
+    QPushButton:disabled {{
+        background: {_bg('surface0', 0.72)};
+        color: {C['subtext0']};
+        border-color: {_bg('surface2', 0.26)};
+    }}
     """
 
 

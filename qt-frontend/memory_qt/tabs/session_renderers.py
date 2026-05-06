@@ -20,6 +20,14 @@ MESSAGES_PER_PAGE = 10
 RENDER_BATCH_SIZE = 3
 
 
+def _rgba(hex_color: str, alpha: float) -> str:
+    hex_color = hex_color.lstrip("#")
+    r = int(hex_color[0:2], 16)
+    g = int(hex_color[2:4], 16)
+    b = int(hex_color[4:6], 16)
+    return f"rgba({r}, {g}, {b}, {alpha})"
+
+
 class AutoHeightBrowser(QTextBrowser):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -130,7 +138,7 @@ def highlight_search(html_content: str, term: str) -> str:
         else:
             part = re.sub(
                 escaped_term,
-                lambda m: f'<span style="background: #f9e2af; color: #1e1e2e; padding: 1px 2px; '
+                lambda m: f'<span style="background: {_rgba(C["yellow"], 0.28)}; color: {C["text"]}; padding: 1px 2px; '
                           f'border-radius: 2px; font-weight: bold;">{m.group(0)}</span>',
                 part,
                 flags=re.IGNORECASE,

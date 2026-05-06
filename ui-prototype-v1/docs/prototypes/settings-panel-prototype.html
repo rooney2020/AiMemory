@@ -1,0 +1,1735 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Memory 设置中心原型</title>
+  <style>
+    :root {
+      --bg: #08101d;
+      --bg-soft: #0f172a;
+      --panel: rgba(19, 35, 59, 0.9);
+      --panel-strong: rgba(8, 16, 29, 0.94);
+      --panel-muted: rgba(30, 53, 84, 0.78);
+      --line: rgba(123, 144, 173, 0.28);
+      --line-strong: rgba(93, 197, 255, 0.42);
+      --text: #eef5ff;
+      --text-soft: #c6d4ea;
+      --text-muted: #9fb2cb;
+      --blue: #5dc5ff;
+      --teal: #34d2c8;
+      --green: #31d0a2;
+      --yellow: #f0b95f;
+      --red: #ff7d79;
+      --shadow: 0 28px 80px rgba(0, 0, 0, 0.34);
+      --hero: linear-gradient(135deg, rgba(93, 197, 255, 0.2), rgba(52, 210, 200, 0.08) 42%, rgba(164, 182, 255, 0.12));
+      --accent: linear-gradient(135deg, #5dc5ff, #34d2c8);
+      --radius-xl: 32px;
+      --radius-lg: 24px;
+      --radius-md: 18px;
+      --radius-sm: 14px;
+      --font-ui: "Plus Jakarta Sans", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+      --font-mono: "JetBrains Mono", "Fira Code", monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: var(--font-ui);
+      color: var(--text);
+      background:
+        radial-gradient(circle at 12% 12%, rgba(93, 197, 255, 0.22), transparent 28%),
+        radial-gradient(circle at 88% 18%, rgba(52, 210, 200, 0.16), transparent 24%),
+        linear-gradient(135deg, #040914 0%, #09111d 34%, #0f172a 100%);
+      overflow-x: hidden;
+    }
+
+    body[data-theme="sky"] {
+      --bg: #ffffff;
+      --bg-soft: #f9fcff;
+      --panel: rgba(255, 255, 255, 0.88);
+      --panel-strong: rgba(243, 248, 252, 0.94);
+      --panel-muted: rgba(232, 240, 248, 0.88);
+      --line: rgba(140, 161, 187, 0.42);
+      --line-strong: rgba(40, 118, 226, 0.34);
+      --text: #10243e;
+      --text-soft: #3d5877;
+      --text-muted: #5e7696;
+      --blue: #2876e2;
+      --teal: #11b8b0;
+      --green: #1fa473;
+      --yellow: #db931d;
+      --red: #d95d5d;
+      --shadow: 0 26px 70px rgba(41, 72, 113, 0.14);
+      --hero: linear-gradient(135deg, rgba(40, 118, 226, 0.1), rgba(17, 184, 176, 0.08) 48%, rgba(126, 140, 255, 0.12));
+      --accent: linear-gradient(135deg, #2876e2, #11b8b0);
+      background:
+        radial-gradient(circle at 12% 12%, rgba(92, 169, 255, 0.16), transparent 28%),
+        radial-gradient(circle at 88% 18%, rgba(17, 184, 176, 0.12), transparent 22%),
+        linear-gradient(135deg, #edf5fb 0%, #f6fbff 48%, #ffffff 100%);
+    }
+
+    body[data-theme="mist"] {
+      --bg: #ffffff;
+      --bg-soft: #f8f9fc;
+      --panel: rgba(255, 255, 255, 0.86);
+      --panel-strong: rgba(244, 247, 251, 0.95);
+      --panel-muted: rgba(232, 237, 244, 0.84);
+      --line: rgba(134, 152, 170, 0.36);
+      --line-strong: rgba(76, 127, 255, 0.3);
+      --text: #19293c;
+      --text-soft: #44576b;
+      --text-muted: #647890;
+      --blue: #4c7fff;
+      --teal: #14b8a6;
+      --green: #1da383;
+      --yellow: #d5962d;
+      --red: #df6b73;
+      --shadow: 0 28px 80px rgba(74, 92, 122, 0.16);
+      --hero: linear-gradient(135deg, rgba(76, 127, 255, 0.1), rgba(20, 184, 166, 0.08) 46%, rgba(167, 131, 255, 0.12));
+      --accent: linear-gradient(135deg, #4c7fff, #14b8a6);
+      background:
+        radial-gradient(circle at 14% 14%, rgba(127, 169, 255, 0.14), transparent 26%),
+        radial-gradient(circle at 86% 18%, rgba(20, 184, 166, 0.1), transparent 20%),
+        linear-gradient(135deg, #f1f4f9 0%, #f7f9fc 52%, #ffffff 100%);
+    }
+
+    .page {
+      width: min(1500px, calc(100% - 40px));
+      margin: 24px auto;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 36px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+      backdrop-filter: blur(24px);
+      box-shadow: var(--shadow);
+    }
+
+    .shell {
+      display: grid;
+      grid-template-columns: 104px minmax(0, 1fr);
+      gap: 18px;
+      min-height: calc(100vh - 90px);
+    }
+
+    .sidebar,
+    .workspace {
+      border: 1px solid var(--line);
+      border-radius: var(--radius-xl);
+      background: var(--panel);
+      backdrop-filter: blur(18px);
+    }
+
+    .sidebar {
+      padding: 18px 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-mark {
+      width: 56px;
+      height: 56px;
+      display: grid;
+      place-items: center;
+      border-radius: 18px;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 800;
+      font-size: 22px;
+      letter-spacing: 0.04em;
+    }
+
+    .brand-title {
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+      color: var(--text);
+      text-align: center;
+    }
+
+    .brand-subtitle,
+    .nav-note,
+    .status-meta,
+    .footer-note {
+      color: var(--text-muted);
+    }
+
+    .nav-item {
+      width: 100%;
+      padding: 12px 8px;
+      border-radius: 18px;
+      border: 1px solid transparent;
+      color: var(--text-muted);
+      text-align: center;
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 1.35;
+    }
+
+    .nav-item.active {
+      color: var(--text);
+      border-color: var(--line-strong);
+      background: linear-gradient(135deg, rgba(93, 197, 255, 0.16), rgba(52, 210, 200, 0.08));
+      box-shadow: inset 3px 0 0 var(--blue);
+    }
+
+    .workspace {
+      padding: 18px;
+      display: grid;
+      grid-template-rows: auto auto 1fr;
+      gap: 16px;
+    }
+
+    .topbar,
+    .settings-shell,
+    .floating-card,
+    .section-card,
+    .sync-card,
+    .device-card,
+    .summary-card,
+    .theme-chip,
+    .mini-card,
+    .safety-item,
+    .drawer-preview {
+      border: 1px solid var(--line);
+      background: var(--panel-strong);
+      border-radius: var(--radius-lg);
+    }
+
+    .topbar {
+      display: grid;
+      grid-template-columns: 280px 1fr 360px;
+      gap: 16px;
+      padding: 14px 16px;
+      align-items: center;
+    }
+
+    .command-card,
+    .search-card,
+    .action-group {
+      border-radius: 22px;
+      background: var(--panel-muted);
+      border: 1px solid var(--line);
+    }
+
+    .command-card {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+    }
+
+    .badge {
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 12px;
+      color: var(--blue);
+      background: rgba(93, 197, 255, 0.13);
+      border: 1px solid rgba(93, 197, 255, 0.18);
+    }
+
+    .command-kicker {
+      font-size: 15px;
+      font-weight: 800;
+    }
+
+    .command-desc {
+      margin-top: 2px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .search-card {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 14px;
+      min-height: 48px;
+      color: var(--text-soft);
+    }
+
+    .search-ghost {
+      flex: 1;
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+
+    .action-group {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      padding: 7px;
+    }
+
+    .pill,
+    .ghost-pill,
+    .soft-pill,
+    .toggle {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 10px 14px;
+      font-size: 13px;
+      font-weight: 700;
+      background: rgba(255,255,255,0.02);
+      color: var(--text-soft);
+    }
+
+    .pill.primary {
+      background: var(--accent);
+      color: #fff;
+      border-color: transparent;
+    }
+
+    .settings-hero {
+      display: grid;
+      grid-template-columns: 1fr 420px;
+      gap: 16px;
+      padding: 18px 20px;
+      border-radius: 28px;
+      border: 1px solid var(--line);
+      background: var(--hero);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .settings-hero::after {
+      content: "";
+      position: absolute;
+      inset: auto -120px -120px auto;
+      width: 320px;
+      height: 320px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(93, 197, 255, 0.16), transparent 60%);
+      pointer-events: none;
+    }
+
+    .hero-kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: rgba(93, 197, 255, 0.13);
+      color: var(--blue);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+    }
+
+    .hero-title {
+      margin: 0;
+      font-size: 32px;
+      line-height: 1.18;
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .hero-stats {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      align-content: start;
+    }
+
+    .mini-card {
+      padding: 14px;
+    }
+
+    .mini-label {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .mini-value {
+      margin-top: 10px;
+      font-size: 26px;
+      font-weight: 800;
+      color: var(--text);
+    }
+
+    .mini-subvalue {
+      margin-top: 6px;
+      font-size: 12px;
+      color: var(--text-soft);
+    }
+
+    .settings-shell {
+      display: grid;
+      grid-template-columns: 220px minmax(0, 1fr);
+      gap: 16px;
+      padding: 16px;
+      min-height: 760px;
+    }
+
+    .settings-nav {
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      background: var(--panel);
+      border-radius: 24px;
+    }
+
+    .settings-nav-header {
+      padding: 6px 6px 12px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .settings-nav-title {
+      font-size: 15px;
+      font-weight: 800;
+    }
+
+    .settings-nav-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .settings-tab {
+      padding: 12px 12px 12px 14px;
+      border-radius: 18px;
+      border: 1px solid transparent;
+      background: transparent;
+    }
+
+    .settings-tab.active {
+      border-color: var(--line-strong);
+      background: linear-gradient(135deg, rgba(93, 197, 255, 0.16), rgba(52, 210, 200, 0.06));
+      box-shadow: inset 3px 0 0 var(--blue);
+    }
+
+    .settings-tab-title {
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--text);
+    }
+
+    .content-column {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      min-width: 0;
+    }
+
+    .section-card {
+      padding: 18px;
+    }
+
+    .section-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      margin-bottom: 14px;
+    }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 800;
+    }
+
+    .section-desc {
+      margin-top: 6px;
+      max-width: 68ch;
+      font-size: 13px;
+      line-height: 1.65;
+      color: var(--text-muted);
+    }
+
+    .section-layout.two {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .theme-grid,
+    .device-grid,
+    .rule-grid,
+    .safety-grid,
+    .data-grid {
+      display: grid;
+      gap: 12px;
+    }
+
+    .theme-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .theme-chip {
+      padding: 14px;
+      background: var(--panel-muted);
+    }
+
+    .theme-chip.active {
+      border-color: var(--line-strong);
+      box-shadow: 0 0 0 1px rgba(93, 197, 255, 0.18) inset;
+    }
+
+    .theme-preview {
+      height: 86px;
+      border-radius: 16px;
+      margin-bottom: 12px;
+      border: 1px solid rgba(255,255,255,0.06);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .theme-preview.night {
+      background: linear-gradient(135deg, #050b14, #0f172a 46%, #13233b 100%);
+    }
+
+    .theme-preview.sky {
+      background: linear-gradient(135deg, #ecf5fb, #f9fcff 52%, #ffffff 100%);
+    }
+
+    .theme-preview.mist {
+      background: linear-gradient(135deg, #f2f4f9, #f8f9fc 50%, #ffffff 100%);
+    }
+
+    .theme-preview::before,
+    .theme-preview::after {
+      content: "";
+      position: absolute;
+      inset: auto auto 12px 12px;
+      width: 56%;
+      height: 18px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.18);
+    }
+
+    .theme-preview::after {
+      inset: 12px auto auto 12px;
+      width: 38%;
+      height: 14px;
+    }
+
+    .theme-name {
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    .theme-meta {
+      margin-top: 6px;
+      font-size: 12px;
+      line-height: 1.55;
+      color: var(--text-muted);
+    }
+
+    .field-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .field {
+      padding: 14px;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.02);
+    }
+
+    .field label {
+      display: block;
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--text-soft);
+      margin-bottom: 10px;
+    }
+
+    .field-box,
+    .select-box,
+    .status-bar,
+    .token-mask {
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 0 14px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: var(--panel-muted);
+      color: var(--text);
+      font-size: 13px;
+    }
+
+    .field-box.placeholder,
+    .select-box.placeholder {
+      color: var(--text-muted);
+    }
+
+    .check-list {
+      display: grid;
+      gap: 10px;
+      margin-top: 6px;
+    }
+
+    .toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 58px;
+      padding: 12px 14px;
+      background: rgba(255,255,255,0.03);
+    }
+
+    .toggle-info {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      min-width: 0;
+    }
+
+    .toggle-title {
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--text);
+    }
+
+    .toggle-desc {
+      font-size: 12px;
+      line-height: 1.55;
+      color: var(--text-muted);
+    }
+
+    .switch {
+      position: relative;
+      width: 48px;
+      height: 28px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid var(--line);
+      flex: none;
+    }
+
+    .switch::after {
+      content: "";
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.9);
+      transition: transform .2s ease;
+    }
+
+    .switch.on {
+      background: linear-gradient(135deg, rgba(93, 197, 255, 0.7), rgba(52, 210, 200, 0.72));
+      border-color: transparent;
+    }
+
+    .switch.on::after {
+      transform: translateX(20px);
+    }
+
+    .sync-layout {
+      display: grid;
+      grid-template-columns: 1.05fr 0.95fr;
+      gap: 12px;
+    }
+
+    .sync-card,
+    .device-card,
+    .summary-card,
+    .drawer-preview {
+      padding: 16px;
+    }
+
+    .card-title {
+      font-size: 14px;
+      font-weight: 800;
+      margin-bottom: 6px;
+    }
+
+    .card-desc {
+      font-size: 12px;
+      line-height: 1.6;
+      color: var(--text-muted);
+      margin-bottom: 14px;
+    }
+
+    .status-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--green);
+      background: rgba(49, 208, 162, 0.12);
+      border: 1px solid rgba(49, 208, 162, 0.22);
+      margin-bottom: 12px;
+    }
+
+    .status-chip.warning {
+      color: var(--yellow);
+      background: rgba(240, 185, 95, 0.12);
+      border-color: rgba(240, 185, 95, 0.24);
+    }
+
+    .status-chip.danger {
+      color: var(--red);
+      background: rgba(255, 125, 121, 0.12);
+      border-color: rgba(255, 125, 121, 0.2);
+    }
+
+    .status-bar {
+      margin-top: 10px;
+      min-height: 56px;
+      align-items: flex-start;
+      padding-top: 12px;
+      padding-bottom: 12px;
+      line-height: 1.6;
+    }
+
+    .status-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .status-item {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--line);
+      font-size: 12px;
+    }
+
+    .status-item strong {
+      color: var(--text);
+      font-size: 13px;
+    }
+
+    .inline-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .token-mask {
+      font-family: var(--font-mono);
+      color: var(--text-soft);
+    }
+
+    .device-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .rule-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .device-item {
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(255,255,255,0.02);
+    }
+
+    .device-name {
+      font-size: 13px;
+      font-weight: 800;
+      margin-bottom: 6px;
+    }
+
+    .device-meta {
+      font-size: 12px;
+      line-height: 1.6;
+      color: var(--text-muted);
+    }
+
+    .device-item.active {
+      border-color: rgba(49, 208, 162, 0.38);
+      background: linear-gradient(135deg, rgba(49, 208, 162, 0.12), rgba(93, 197, 255, 0.06));
+    }
+
+    .data-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .tag-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .tag-chip {
+      padding: 7px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.04);
+      font-size: 12px;
+      color: var(--text-soft);
+    }
+
+    .rule-list {
+      display: grid;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .rule-row {
+      display: grid;
+      grid-template-columns: 120px 120px minmax(0, 1fr) 180px;
+      gap: 8px;
+      padding: 10px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.03);
+    }
+
+    .rule-cell {
+      min-height: 38px;
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.03);
+      font-size: 12px;
+      color: var(--text-soft);
+    }
+
+    .rule-cell.label {
+      justify-content: center;
+      font-weight: 800;
+      color: var(--text);
+    }
+
+    .data-card {
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(255,255,255,0.02);
+    }
+
+    .data-card-title {
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    .data-card-desc {
+      margin: 8px 0 14px;
+      font-size: 12px;
+      line-height: 1.6;
+      color: var(--text-muted);
+      min-height: 58px;
+    }
+
+    .safety-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .safety-item {
+      padding: 14px;
+      background: rgba(255,255,255,0.03);
+    }
+
+    .safety-title {
+      font-size: 13px;
+      font-weight: 800;
+      margin-bottom: 6px;
+    }
+
+    .safety-desc {
+      font-size: 12px;
+      line-height: 1.6;
+      color: var(--text-muted);
+    }
+
+    .progress-track {
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.08);
+      overflow: hidden;
+      margin-top: 10px;
+    }
+
+    .progress-fill {
+      width: 62%;
+      height: 100%;
+      background: var(--accent);
+    }
+
+    .footer-note {
+      display: flex;
+      justify-content: flex-end;
+      padding: 4px 4px 0;
+      font-size: 12px;
+    }
+
+    .modal-layer {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 28px;
+      pointer-events: none;
+    }
+
+    .modal-scrim {
+      position: absolute;
+      inset: 0;
+      background: rgba(3, 8, 18, 0.56);
+      backdrop-filter: blur(10px);
+    }
+
+    .modal-stack {
+      position: relative;
+      z-index: 1;
+      width: min(1280px, calc(100vw - 80px));
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 380px;
+      gap: 18px;
+      align-items: start;
+    }
+
+    .modal-panel {
+      pointer-events: auto;
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      background: rgba(8, 16, 29, 0.96);
+      box-shadow: 0 28px 90px rgba(0, 0, 0, 0.34);
+      padding: 18px;
+    }
+
+    body[data-theme="sky"] .modal-panel,
+    body[data-theme="mist"] .modal-panel {
+      background: rgba(255, 255, 255, 0.96);
+    }
+
+    .modal-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: flex-start;
+      margin-bottom: 14px;
+    }
+
+    .modal-title {
+      font-size: 20px;
+      font-weight: 800;
+    }
+
+    .modal-subtitle {
+      margin-top: 6px;
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    .modal-close {
+      width: 36px;
+      height: 36px;
+      display: grid;
+      place-items: center;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      color: var(--text-soft);
+      background: rgba(255,255,255,0.03);
+      font-size: 16px;
+      font-weight: 800;
+    }
+
+    .queue-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .queue-card {
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: rgba(255,255,255,0.03);
+      padding: 14px;
+    }
+
+    .queue-title {
+      font-size: 13px;
+      font-weight: 800;
+      margin-bottom: 10px;
+    }
+
+    .queue-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .queue-item {
+      padding: 10px 12px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.03);
+    }
+
+    .queue-item strong {
+      display: block;
+      font-size: 12px;
+      color: var(--text);
+    }
+
+    .queue-item span {
+      display: block;
+      margin-top: 6px;
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    .oversize-list {
+      display: grid;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .oversize-item {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(255,255,255,0.03);
+      padding: 12px;
+    }
+
+    .oversize-item-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      font-size: 12px;
+      color: var(--text-soft);
+    }
+
+    .oversize-name {
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--text);
+    }
+
+    .choice-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+
+    .command-desc,
+    .hero-kicker,
+    .hero-desc,
+    .hero-actions,
+    .hero-stats,
+    .section-hint,
+    .settings-tab-desc,
+    .section-desc,
+    .theme-meta,
+    .mini-subvalue,
+    .field-help,
+    .toggle-desc,
+    .card-desc,
+    .device-meta,
+    .data-card-desc,
+    .safety-desc,
+    .status-bar,
+    .drawer-preview,
+    .summary-column,
+    .footer-note {
+      display: none;
+    }
+
+    @media (max-width: 1320px) {
+      .topbar,
+      .settings-hero,
+      .settings-shell,
+      .sync-layout {
+        grid-template-columns: 1fr;
+      }
+
+    }
+
+    @media (max-width: 980px) {
+      .page {
+        width: calc(100% - 20px);
+        margin: 10px auto;
+        padding: 10px;
+        border-radius: 24px;
+      }
+
+      .shell {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+
+      .field-grid,
+      .theme-grid,
+      .device-grid,
+      .rule-grid,
+      .queue-grid,
+      .safety-grid,
+      .data-grid,
+      .rule-row,
+      .section-layout.two {
+        grid-template-columns: 1fr;
+      }
+
+      .modal-stack {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body data-theme="night">
+  <div class="page">
+    <div class="shell">
+      <aside class="sidebar">
+        <div class="brand-mark">AI</div>
+        <div class="brand-title">AI MEMORY</div>
+        <div class="brand-subtitle">情报台</div>
+        <div class="nav-item">OV<br>总览</div>
+        <div class="nav-item">CS<br>会话记录</div>
+        <div class="nav-item">EP<br>会话摘要</div>
+        <div class="nav-item">SE<br>笔记</div>
+        <div class="nav-item">PR<br>偏好</div>
+        <div class="nav-item">AS<br>资产</div>
+        <div class="nav-item">GP<br>图谱</div>
+        <div class="nav-item">SC<br>搜索</div>
+        <div class="nav-item active">ST<br>设置</div>
+        <div style="flex:1"></div>
+        <div class="nav-note">v0.1.0</div>
+      </aside>
+
+      <main class="workspace">
+        <section class="topbar">
+          <div class="command-card">
+            <div class="badge">ST</div>
+            <div>
+              <div class="command-kicker">设置中心</div>
+              <div class="command-desc">主题、同步、导入导出与安全范围统一收口</div>
+            </div>
+          </div>
+
+          <div class="search-card">
+            <span>⌕</span>
+            <div class="search-ghost">搜索设置项、快捷动作或同步状态…</div>
+            <div class="badge">/</div>
+          </div>
+
+          <div class="action-group">
+            <div class="pill">恢复默认</div>
+            <div class="pill">导出配置</div>
+            <div class="pill primary">保存并立即同步</div>
+          </div>
+        </section>
+
+        <section class="settings-shell">
+          <aside class="settings-nav floating-card">
+            <div class="settings-nav-header">
+              <div class="settings-nav-title">设置导航</div>
+              <div class="section-hint">按任务拆分，而不是按控件堆叠</div>
+            </div>
+
+            <div class="settings-nav-list">
+              <div class="settings-tab active">
+                <div class="settings-tab-title">主题与界面</div>
+                <div class="settings-tab-desc">三态主题、阅读密度、动效强度和工作台默认落点。</div>
+              </div>
+              <div class="settings-tab">
+                <div class="settings-tab-title">同步与设备</div>
+                <div class="settings-tab-desc">GitHub 仓库、认证方式、同步模式、设备范围与首次同步提醒。</div>
+              </div>
+              <div class="settings-tab">
+                <div class="settings-tab-title">数据导入导出</div>
+                <div class="settings-tab-desc">ZIP 导入、分类导出、配置快照、迁移日志与冲突说明。</div>
+              </div>
+              <div class="settings-tab">
+                <div class="settings-tab-title">安全与范围</div>
+                <div class="settings-tab-desc">敏感会话上传、托管资产同步、排除目录与高风险确认。</div>
+              </div>
+              <div class="settings-tab">
+                <div class="settings-tab-title">实验功能</div>
+                <div class="settings-tab-desc">预留给 Copilot 会话增强、图谱实验和高级调试开关。</div>
+              </div>
+            </div>
+
+            <div class="drawer-preview">
+              <div class="summary-title">为什么不再用小弹层</div>
+              <div class="summary-item-desc" style="margin-top:8px;">
+                小弹层适合“切主题、点导出”这种轻操作，但同步配置里已经出现 OAuth、首次补传、定时任务与安全范围，这些都需要更强的状态说明和风险提示。
+              </div>
+              <div class="drawer-mini">
+                <div class="summary-item-title">兼容保留</div>
+                <div class="summary-item-desc">顶部“设置”按钮仍保留，但点击后进入完整设置工作区；不再悬浮出纵向过长的弹层。</div>
+                <div class="drawer-line"><span></span></div>
+              </div>
+            </div>
+          </aside>
+
+          <div class="content-column">
+            <section class="section-card">
+              <div class="section-head">
+                <div>
+                  <div class="section-title">主题与界面</div>
+                  <div class="section-desc">主题切换不只改色，还要让用户直观看到阅读区、命令条和设置面板在不同主题下的层级关系。因此用大尺寸预览卡替代现有的文字按钮组。</div>
+                </div>
+                <div class="soft-pill">当前已选：科技清爽·夜航</div>
+              </div>
+
+              <div class="theme-grid">
+                <div class="theme-chip active">
+                  <div class="theme-preview night"></div>
+                  <div class="theme-name">科技清爽·夜航</div>
+                  <div class="theme-meta">默认主题，强调信息密度与情报台气质，适合长时间浏览会话与图谱。</div>
+                </div>
+                <div class="theme-chip">
+                  <div class="theme-preview sky"></div>
+                  <div class="theme-name">科技清爽·晴空</div>
+                  <div class="theme-meta">亮色工作台，适合白天办公和展示场景，降低暗背景疲劳。</div>
+                </div>
+                <div class="theme-chip">
+                  <div class="theme-preview mist"></div>
+                  <div class="theme-name">科技清爽·薄雾</div>
+                  <div class="theme-meta">低对比中性色，适合阅读与沉浸编辑，视觉噪音更低。</div>
+                </div>
+              </div>
+
+              <div class="section-layout two" style="margin-top:12px;">
+                <div class="toggle">
+                  <div class="toggle-info">
+                    <div class="toggle-title">记住上次工作区</div>
+                    <div class="toggle-desc">下次启动默认回到上次浏览的 Tab 和阅读区位置。</div>
+                  </div>
+                  <div class="switch on"></div>
+                </div>
+                <div class="toggle">
+                  <div class="toggle-info">
+                    <div class="toggle-title">减少非必要动画</div>
+                    <div class="toggle-desc">在低性能机器或录屏演示场景中降低动效干扰。</div>
+                  </div>
+                  <div class="switch"></div>
+                </div>
+              </div>
+            </section>
+
+            <section class="section-card">
+              <div class="section-head">
+                <div>
+                  <div class="section-title">同步与设备</div>
+                  <div class="section-desc">把“配置输入”、“认证状态”、“首次同步风险”和“当前设备范围”拆开显示。用户最关心的不是字段本身，而是现在能不能同步、会同步什么、会不会传错。</div>
+                </div>
+                <div class="status-chip warning">首次同步需确认补传体量</div>
+              </div>
+
+              <div class="sync-layout">
+                <div class="sync-card">
+                  <div class="card-title">仓库与认证配置</div>
+                  <div class="card-desc">将仓库定位、授权方式和同步模式分块，避免一个长表单让用户失去上下文。</div>
+
+                  <div class="field-grid">
+                    <div class="field">
+                      <label>仓库所有者</label>
+                      <div class="field-box">tsdl</div>
+                      <div class="field-help">决定同步目标的命名空间。</div>
+                    </div>
+                    <div class="field">
+                      <label>仓库名称</label>
+                      <div class="field-box">ai-memory-sync</div>
+                      <div class="field-help">建议单独使用专用同步仓库。</div>
+                    </div>
+                    <div class="field">
+                      <label>分支</label>
+                      <div class="select-box">main <span>▾</span></div>
+                      <div class="field-help">默认主分支，后续可支持按环境分支隔离。</div>
+                    </div>
+                    <div class="field">
+                      <label>机器标识</label>
+                      <div class="field-box">hp-880g6-main</div>
+                      <div class="field-help">用于多设备冲突追踪和同步日志标识。</div>
+                    </div>
+                    <div class="field">
+                      <label>认证方式</label>
+                      <div class="select-box">GitHub 登录（OAuth Device Flow） <span>▾</span></div>
+                      <div class="field-help">默认推荐 OAuth，避免在前端显式保存长期 PAT。</div>
+                    </div>
+                    <div class="field">
+                      <label>OAuth Client ID</label>
+                      <div class="field-box placeholder">填写 GitHub OAuth App Client ID</div>
+                      <div class="field-help">只有在 OAuth 模式下展开并校验。</div>
+                    </div>
+                  </div>
+
+                  <div class="check-list">
+                    <div class="toggle">
+                      <div class="toggle-info">
+                        <div class="toggle-title">启用 GitHub 同步</div>
+                        <div class="toggle-desc">仓库完整配置后才允许打开，避免“开关已开但实际不生效”的困惑。</div>
+                      </div>
+                      <div class="switch on"></div>
+                    </div>
+                    <div class="toggle">
+                      <div class="toggle-info">
+                        <div class="toggle-title">上传原始会话文件</div>
+                        <div class="toggle-desc">默认开启，但会联动敏感会话与大文件提醒。</div>
+                      </div>
+                      <div class="switch on"></div>
+                    </div>
+                    <div class="toggle">
+                      <div class="toggle-info">
+                        <div class="toggle-title">上传托管资产</div>
+                        <div class="toggle-desc">需要显示估算体量与超大资产跳过规则，而不是只给一个布尔开关。</div>
+                      </div>
+                      <div class="switch"></div>
+                    </div>
+                  </div>
+
+                  <div class="inline-actions">
+                    <div class="pill">保存同步设置</div>
+                    <div class="pill primary">立即同步</div>
+                    <div class="pill">建立当前基线</div>
+                  </div>
+                </div>
+
+                <div class="sync-card">
+                  <div class="card-title">当前同步状态</div>
+                  <div class="card-desc">把用户最需要确认的结果集中显示在右侧卡片：有没有登录、上次同步何时完成、下一次会同步什么。</div>
+
+                  <div class="status-chip">GitHub 已登录：tsdl</div>
+                  <div class="token-mask">gho_••••••••••••••••••••••12k9</div>
+
+                  <div class="status-list">
+                    <div class="status-item">
+                      <div>
+                        <strong>同步模式</strong>
+                        <div class="status-meta">定时同步，每 30 分钟执行一次</div>
+                      </div>
+                      <div>运行中</div>
+                    </div>
+                    <div class="status-item">
+                      <div>
+                        <strong>上次同步</strong>
+                        <div class="status-meta">2026-04-27 10:42 · 成功</div>
+                      </div>
+                      <div>+28 会话</div>
+                    </div>
+                    <div class="status-item">
+                      <div>
+                        <strong>预计待处理</strong>
+                        <div class="status-meta">12 个会话，2 个资产，约 182 MB</div>
+                      </div>
+                      <div>下一轮</div>
+                    </div>
+                  </div>
+
+                  <div class="field" style="margin-top:12px;">
+                    <label>同步进度</label>
+                    <div class="status-item">
+                      <div>
+                        <strong>上传阶段</strong>
+                        <div class="status-meta">正在上传 12 / 28 个会话，1 / 2 个资产目录</div>
+                      </div>
+                      <div>62%</div>
+                    </div>
+                    <div class="progress-track">
+                      <div class="progress-fill" style="width:62%"></div>
+                    </div>
+                    <div class="status-list">
+                      <div class="status-item">
+                        <div>
+                          <strong>当前任务</strong>
+                          <div class="status-meta">assets/reports/2026-q2/</div>
+                        </div>
+                        <div>182 MB</div>
+                      </div>
+                      <div class="status-item">
+                        <div>
+                          <strong>剩余队列</strong>
+                          <div class="status-meta">16 个会话，1 个资产目录</div>
+                        </div>
+                        <div>等待中</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="status-bar">
+                    首次同步若大于 50 项或 512 MB，先弹出“全量补传 / 从现在开始同步 / 取消”三分流确认；这是现有逻辑里最需要被用户看见的风险提示，不应只在点击时临时弹框。
+                  </div>
+
+                  <div class="inline-actions">
+                    <div class="pill">GitHub 登录</div>
+                    <div class="pill">退出登录</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="device-card" style="margin-top:12px;">
+                <div class="card-title">上传规则与过滤</div>
+
+                <div class="rule-grid">
+                  <div class="field">
+                    <label>文件上传大小限制</label>
+                    <div class="select-box">512 MB <span>▾</span></div>
+                  </div>
+                  <div class="field">
+                    <label>超限处理</label>
+                    <div class="select-box">提示用户并跳过 <span>▾</span></div>
+                  </div>
+                  <div class="field">
+                    <label>资产大小计算口径</label>
+                    <div class="select-box">按整个资产目录大小计算 <span>▾</span></div>
+                  </div>
+                  <div class="field">
+                    <label>压缩上传</label>
+                    <div class="select-box">开启，超过阈值优先压缩 <span>▾</span></div>
+                  </div>
+                </div>
+
+                <div class="section-layout two" style="margin-top:12px;">
+                  <div class="toggle">
+                    <div class="toggle-info">
+                      <div class="toggle-title">白名单优先</div>
+                    </div>
+                    <div class="switch on"></div>
+                  </div>
+                  <div class="toggle">
+                    <div class="toggle-info">
+                      <div class="toggle-title">命中黑名单则不上传</div>
+                    </div>
+                    <div class="switch on"></div>
+                  </div>
+                </div>
+
+                <div class="field" style="margin-top:12px;">
+                  <label>规则类型</label>
+                  <div class="tag-group">
+                    <div class="tag-chip">资产项目</div>
+                    <div class="tag-chip">会话记录</div>
+                    <div class="tag-chip">文件通配</div>
+                    <div class="tag-chip">路径前缀</div>
+                    <div class="tag-chip">扩展名</div>
+                  </div>
+                </div>
+
+                <div class="field" style="margin-top:12px;">
+                  <label>白名单规则</label>
+                  <div class="rule-list">
+                    <div class="rule-row">
+                      <div class="rule-cell label">规则 01</div>
+                      <div class="rule-cell">资产项目</div>
+                      <div class="rule-cell">assets/reports/</div>
+                      <div class="rule-cell">允许上传</div>
+                    </div>
+                    <div class="rule-row">
+                      <div class="rule-cell label">规则 02</div>
+                      <div class="rule-cell">会话记录</div>
+                      <div class="rule-cell">sessions/copilot/</div>
+                      <div class="rule-cell">允许上传</div>
+                    </div>
+                  </div>
+                  <div class="inline-actions">
+                    <div class="pill">新增白名单规则</div>
+                  </div>
+                </div>
+
+                <div class="field" style="margin-top:12px;">
+                  <label>黑名单规则</label>
+                  <div class="rule-list">
+                    <div class="rule-row">
+                      <div class="rule-cell label">规则 01</div>
+                      <div class="rule-cell">路径前缀</div>
+                      <div class="rule-cell">tmp/</div>
+                      <div class="rule-cell">禁止上传</div>
+                    </div>
+                    <div class="rule-row">
+                      <div class="rule-cell label">规则 02</div>
+                      <div class="rule-cell">文件通配</div>
+                      <div class="rule-cell">*.mp4</div>
+                      <div class="rule-cell">禁止上传</div>
+                    </div>
+                    <div class="rule-row">
+                      <div class="rule-cell label">规则 03</div>
+                      <div class="rule-cell">扩展名</div>
+                      <div class="rule-cell">.sqlite-wal</div>
+                      <div class="rule-cell">禁止上传</div>
+                    </div>
+                  </div>
+                  <div class="inline-actions">
+                    <div class="pill">新增黑名单规则</div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section class="section-card">
+              <div class="section-head">
+                <div>
+                  <div class="section-title">数据导入导出与安全范围</div>
+                  <div class="section-desc">现有“导入 / 导出”按钮太轻，难以传达导出粒度、迁移用途和安全边界。这里改成操作卡，让用户清楚知道每个动作输出什么、适用于什么场景。</div>
+                </div>
+                <div class="soft-pill">导出动作与保存动作分离</div>
+              </div>
+
+              <div class="data-grid">
+                <div class="data-card">
+                  <div class="data-card-title">导入 ZIP</div>
+                  <div class="data-card-desc">导入记忆、资产索引和配置快照。导入前展示冲突预览，避免直接覆盖现有数据库。</div>
+                  <div class="pill primary">选择文件</div>
+                </div>
+                <div class="data-card">
+                  <div class="data-card-title">分类导出</div>
+                  <div class="data-card-desc">按会话记录、会话摘要、笔记、偏好、资产列表分别导出，并显示格式说明与预估大小。</div>
+                  <div class="pill">打开导出菜单</div>
+                </div>
+                <div class="data-card">
+                  <div class="data-card-title">配置快照</div>
+                  <div class="data-card-desc">只导出当前设置中心中的配置，不包含数据库正文，适合多设备迁移与环境复用。</div>
+                  <div class="pill">导出 JSON</div>
+                </div>
+              </div>
+
+              <div class="safety-grid" style="margin-top:12px;">
+                <div class="safety-item">
+                  <div class="safety-title">敏感会话上传</div>
+                  <div class="safety-desc">不要只给单选框，应附带规则摘要与示例：例如含凭据、内部链接、个人信息的会话默认排除，用户必须显式放开。</div>
+                </div>
+                <div class="safety-item">
+                  <div class="safety-title">超大托管资产</div>
+                  <div class="safety-desc">当资产超出上限时，要在设置中预先解释会被跳过，并把跳过原因放到同步状态摘要里。</div>
+                </div>
+                <div class="safety-item">
+                  <div class="safety-title">排除目录</div>
+                  <div class="safety-desc">支持维护排除路径或规则，避免把临时目录、缓存、录屏或测试产物误传到同步仓库。</div>
+                </div>
+                <div class="safety-item">
+                  <div class="safety-title">危险动作确认</div>
+                  <div class="safety-desc">如“清空本地索引”“重建同步基线”“重新扫描全部会话”应走二次确认和结果摘要，而不是只弹系统对话框。</div>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <aside class="summary-column">
+            <section class="summary-card">
+              <div class="summary-head">
+                <div class="summary-title">原型摘要</div>
+                <div class="badge">v1</div>
+              </div>
+              <div class="summary-list">
+                <div class="summary-item">
+                  <div class="summary-item-title">交互结构</div>
+                  <div class="summary-item-desc">从小弹层改为独立设置工作区。顶部按钮仍在，但承担“进入设置中心”的角色。</div>
+                </div>
+                <div class="summary-item">
+                  <div class="summary-item-title">核心目标</div>
+                  <div class="summary-item-desc">减少同步误操作，让用户在真正点击“立即同步”之前就知道会发生什么。</div>
+                </div>
+                <div class="summary-item">
+                  <div class="summary-item-title">视觉策略</div>
+                  <div class="summary-item-desc">完全沿用“科技清爽情报台”主题令牌，用更清晰的卡片分组替代现有竖向表单堆叠。</div>
+                </div>
+              </div>
+            </section>
+
+            <section class="summary-card">
+              <div class="summary-title">建议优先落地</div>
+              <div class="summary-item-desc" style="margin-top:10px;">
+                如果后续要把原型变成真实 Qt 页面，建议先做以下三块，因为它们直接解决当前痛点。
+              </div>
+              <div class="summary-list" style="margin-top:12px;">
+                <div class="summary-item">
+                  <div class="summary-item-title">1. 状态侧栏</div>
+                  <div class="summary-item-desc">让 GitHub 登录状态、上次同步结果、预计待处理体量始终可见。</div>
+                </div>
+                <div class="summary-item">
+                  <div class="summary-item-title">2. 主题大卡预览</div>
+                  <div class="summary-item-desc">把当前 3 个小按钮升级成带预览的大卡，降低选择成本。</div>
+                </div>
+                <div class="summary-item">
+                  <div class="summary-item-title">3. 风险分流</div>
+                  <div class="summary-item-desc">首次全量补传、敏感会话上传、重建基线统一做显式分流提示。</div>
+                </div>
+              </div>
+            </section>
+
+            <section class="summary-card">
+              <div class="summary-title">主题试切</div>
+              <div class="inline-actions" style="margin-top:12px;">
+                <button class="pill primary" type="button" data-theme-btn="night">夜航</button>
+                <button class="pill" type="button" data-theme-btn="sky">晴空</button>
+                <button class="pill" type="button" data-theme-btn="mist">薄雾</button>
+              </div>
+              <div class="progress-track">
+                <div class="progress-fill"></div>
+              </div>
+              <div class="summary-meta" style="margin-top:10px; line-height:1.7;">
+                用于快速比较设置中心在不同主题下的层级表现，而不需要回到主工作台再观察。
+              </div>
+            </section>
+          </aside>
+        </section>
+
+        <div class="footer-note">
+          <div>原型原则：1）延续现有左导航情报台视觉；2）设置项按任务分组；3）保存配置与执行动作分离；4）同步风险前置展示；5）支持窄屏折叠。</div>
+          <div>建议后续 Qt 实现策略：先做独立设置页，再按需保留顶部轻量快捷开关。</div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <div class="modal-layer">
+    <div class="modal-scrim"></div>
+    <div class="modal-stack">
+      <section class="modal-panel">
+        <div class="modal-head">
+          <div>
+            <div class="modal-title">同步详情</div>
+            <div class="modal-subtitle">详细查看本轮已上传、正在上传和等待上传的内容。</div>
+          </div>
+          <div class="modal-close">×</div>
+        </div>
+
+        <div class="status-item">
+          <div>
+            <strong>当前阶段</strong>
+            <div class="status-meta">上传阶段 · 会话 12 / 28 · 资产目录 1 / 2</div>
+          </div>
+          <div>62%</div>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill" style="width:62%"></div>
+        </div>
+
+        <div class="queue-grid">
+          <div class="queue-card">
+            <div class="queue-title">已上传</div>
+            <div class="queue-list">
+              <div class="queue-item">
+                <strong>sessions/copilot/chat-20260427-01.jsonl</strong>
+                <span>54 MB · 已完成</span>
+              </div>
+              <div class="queue-item">
+                <strong>sessions/cursor/chat-20260427-02.jsonl</strong>
+                <span>31 MB · 已完成</span>
+              </div>
+              <div class="queue-item">
+                <strong>assets/reports/2026-q1/</strong>
+                <span>128 MB · 目录已完成</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="queue-card">
+            <div class="queue-title">正在上传</div>
+            <div class="queue-list">
+              <div class="queue-item">
+                <strong>assets/reports/2026-q2/</strong>
+                <span>182 MB · 目录上传中</span>
+              </div>
+              <div class="queue-item">
+                <strong>sessions/copilot/chat-20260427-08.jsonl</strong>
+                <span>17 MB · 分片 3 / 5</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="queue-card">
+            <div class="queue-title">等待上传</div>
+            <div class="queue-list">
+              <div class="queue-item">
+                <strong>sessions/openclaw/chat-20260427-03.jsonl</strong>
+                <span>22 MB · 队列中</span>
+              </div>
+              <div class="queue-item">
+                <strong>assets/archive/monthly-pack/</strong>
+                <span>超限待确认</span>
+              </div>
+              <div class="queue-item">
+                <strong>debug-logs/2026-04-27/</strong>
+                <span>命中黑名单，待跳过</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="modal-panel">
+        <div class="modal-head">
+          <div>
+            <div class="modal-title">超限上传确认</div>
+            <div class="modal-subtitle">超出上传大小限制时，按项提示，由用户选择继续上传或跳过。</div>
+          </div>
+          <div class="modal-close">×</div>
+        </div>
+
+        <div class="oversize-list">
+          <div class="oversize-item">
+            <div class="oversize-item-head">
+              <div class="oversize-name">assets/archive/monthly-pack/</div>
+              <div>742 MB / 限制 512 MB</div>
+            </div>
+            <div class="choice-row">
+              <div class="pill primary">继续上传</div>
+              <div class="pill">跳过本项</div>
+            </div>
+          </div>
+
+          <div class="oversize-item">
+            <div class="oversize-item-head">
+              <div class="oversize-name">sessions/copilot/chat-20260427-11.jsonl</div>
+              <div>618 MB / 限制 512 MB</div>
+            </div>
+            <div class="choice-row">
+              <div class="pill">继续上传</div>
+              <div class="pill primary">跳过本项</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="inline-actions">
+          <div class="pill">全部继续上传</div>
+          <div class="pill">全部跳过</div>
+          <div class="pill primary">确认选择</div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const body = document.body;
+    const buttons = document.querySelectorAll('[data-theme-btn]');
+
+    buttons.forEach((button) => {
+      button.addEventListener('click', () => {
+        const theme = button.getAttribute('data-theme-btn');
+        body.setAttribute('data-theme', theme);
+        buttons.forEach((item) => {
+          item.classList.toggle('primary', item === button);
+        });
+      });
+    });
+  </script>
+</body>
+</html>

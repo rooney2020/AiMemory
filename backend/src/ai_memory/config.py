@@ -4,6 +4,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 import os
+import platform
+import re
 import yaml
 
 
@@ -71,6 +73,50 @@ class MemoryConfig:
     readable_path: str = "~/.local/share/ai-memory/readable/"
 
 
+def _default_machine_id() -> str:
+    hostname = platform.node().strip().lower() or "machine"
+    system_name = platform.system().strip().lower() or "unknown"
+    safe_host = re.sub(r"[^a-z0-9._-]+", "-", hostname).strip("-._") or "machine"
+    safe_system = re.sub(r"[^a-z0-9._-]+", "-", system_name).strip("-._") or "unknown"
+    return f"{safe_host}-{safe_system}"
+
+
+@dataclass
+class SyncConfig:
+    enabled: bool = False
+    provider: str = "github"
+    repo_owner: str = ""
+    repo_name: str = ""
+    branch: str = "main"
+    remote_url: str = ""
+    auth_mode: str = "oauth"
+    oauth_client_id: str = ""
+    access_token: str = ""
+    token_type: str = "bearer"
+    token_scope: str = "repo"
+    github_user: str = ""
+    machine_id: str = field(default_factory=_default_machine_id)
+    sync_mode: str = "manual"
+    sync_interval_minutes: int = 30
+    upload_sessions: bool = False
+    upload_assets: bool = False
+    upload_sensitive_sessions: bool = False
+    upload_size_limit_mb: int = 512
+    oversize_action: str = "prompt"
+    asset_size_scope: str = "asset_directory"
+    compress_upload: bool = True
+    chunk_large_files: bool = True
+    chunk_size_mb: int = 32
+    whitelist_first: bool = False
+    skip_blacklist_matches: bool = True
+    whitelist_patterns: list[str] = field(default_factory=list)
+    blacklist_patterns: list[str] = field(default_factory=list)
+    device_notes: dict[str, str] = field(default_factory=dict)
+    worktree_path: str = "~/.local/share/ai-memory/sync-worktree"
+    last_sync_at: Optional[str] = None
+    last_synced_change_id: Optional[str] = None
+
+
 @dataclass
 class Config:
     memory: MemoryConfig = field(default_factory=MemoryConfig)
@@ -80,6 +126,7 @@ class Config:
     working_memory: WorkingMemoryConfig = field(default_factory=WorkingMemoryConfig)
     consolidation: ConsolidationConfig = field(default_factory=ConsolidationConfig)
     asset: AssetConfig = field(default_factory=AssetConfig)
+    sync: SyncConfig = field(default_factory=SyncConfig)
 
     @property
     def db_path(self) -> Path:
@@ -105,6 +152,20 @@ def load_config(path: Optional[str] = None) -> Config:
         raw = yaml.safe_load(f) or {}
 
     return _parse_config(raw)
+
+
+def save_config(config: Config, path: Optional[str] = None) -> Path:
+    if path is None:
+        path = os.environ.get(
+            "AI_MEMORY_CONFIG",
+            os.path.expanduser("~/.local/share/ai-memory/config.yaml"),
+        )
+
+    config_path = Path(path)
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(config_path, "w", encoding="utf-8") as f:
+        yaml.safe_dump(_config_to_raw(config), f, allow_unicode=True, sort_keys=False)
+    return config_path
 
 
 def _parse_config(raw: dict) -> Config:
@@ -175,4 +236,125 @@ def _parse_config(raw: dict) -> Config:
             validate_on_lookup=a.get("validate_on_lookup", cfg.asset.validate_on_lookup),
         )
 
+    if "sync" in raw:
+        s = raw["sync"]
+        cfg.sync = SyncConfig(
+            enabled=s.get("enabled", cfg.sync.enabled),
+            provider=s.get("provider", cfg.sync.provider),
+            repo_owner=s.get("repo_owner", cfg.sync.repo_owner),
+            repo_name=s.get("repo_name", cfg.sync.repo_name),
+            branch=s.get("branch", cfg.sync.branch),
+            remote_url=s.get("remote_url", cfg.sync.remote_url),
+            auth_mode=s.get("auth_mode", cfg.sync.auth_mode),
+            oauth_client_id=s.get("oauth_client_id", cfg.sync.oauth_client_id),
+            access_token=s.get("access_token", cfg.sync.access_token),
+            token_type=s.get("token_type", cfg.sync.token_type),
+            token_scope=s.get("token_scope", cfg.sync.token_scope),
+            github_user=s.get("github_user", cfg.sync.github_user),
+            machine_id=s.get("machine_id", cfg.sync.machine_id) or _default_machine_id(),
+            sync_mode=s.get("sync_mode", cfg.sync.sync_mode),
+            sync_interval_minutes=s.get("sync_interval_minutes", cfg.sync.sync_interval_minutes),
+            upload_sessions=s.get("upload_sessions", cfg.sync.upload_sessions),
+            upload_assets=s.get("upload_assets", cfg.sync.upload_assets),
+            upload_sensitive_sessions=s.get("upload_sensitive_sessions", cfg.sync.upload_sensitive_sessions),
+            upload_size_limit_mb=s.get("upload_size_limit_mb", cfg.sync.upload_size_limit_mb),
+            oversize_action=s.get("oversize_action", cfg.sync.oversize_action),
+            asset_size_scope=s.get("asset_size_scope", cfg.sync.asset_size_scope),
+            compress_upload=s.get("compress_upload", cfg.sync.compress_upload),
+            chunk_large_files=s.get("chunk_large_files", cfg.sync.chunk_large_files),
+            chunk_size_mb=s.get("chunk_size_mb", cfg.sync.chunk_size_mb),
+            whitelist_first=s.get("whitelist_first", cfg.sync.whitelist_first),
+            skip_blacklist_matches=s.get("skip_blacklist_matches", cfg.sync.skip_blacklist_matches),
+            whitelist_patterns=list(s.get("whitelist_patterns", cfg.sync.whitelist_patterns) or []),
+            blacklist_patterns=list(s.get("blacklist_patterns", cfg.sync.blacklist_patterns) or []),
+            device_notes=dict(s.get("device_notes", cfg.sync.device_notes) or {}),
+            worktree_path=s.get("worktree_path", cfg.sync.worktree_path),
+            last_sync_at=s.get("last_sync_at", cfg.sync.last_sync_at),
+            last_synced_change_id=s.get("last_synced_change_id", cfg.sync.last_synced_change_id),
+        )
+
     return cfg
+
+
+def _config_to_raw(config: Config) -> dict:
+    return {
+        "memory": {
+            "db_path": config.memory.db_path,
+            "readable_path": config.memory.readable_path,
+        },
+        "embedding": {
+            "model": config.embedding.model,
+            "device": config.embedding.device,
+            "cache_dir": config.embedding.cache_dir,
+            "lazy_load": config.embedding.lazy_load,
+        },
+        "retrieval": {
+            "channels": {
+                name: {
+                    "enabled": channel.enabled,
+                    "weight": channel.weight,
+                }
+                for name, channel in config.retrieval.channels.items()
+            },
+            "top_k": config.retrieval.top_k,
+            "rrf_k": config.retrieval.rrf_k,
+        },
+        "decay": {
+            "enabled": config.decay.enabled,
+            "check_interval_hours": config.decay.check_interval_hours,
+            "protection_days": config.decay.protection_days,
+            "min_strength": config.decay.min_strength,
+            "core_threshold": config.decay.core_threshold,
+            "procedural_rate_factor": config.decay.procedural_rate_factor,
+        },
+        "working_memory": {
+            "max_tokens": config.working_memory.max_tokens,
+            "fixed_section_tokens": config.working_memory.fixed_section_tokens,
+            "dynamic_section_tokens": config.working_memory.dynamic_section_tokens,
+            "recent_section_tokens": config.working_memory.recent_section_tokens,
+            "recent_sessions": config.working_memory.recent_sessions,
+        },
+        "consolidation": {
+            "on_access": config.consolidation.on_access,
+            "spacing_bonus_max": config.consolidation.spacing_bonus_max,
+            "co_retrieval_bonus": config.consolidation.co_retrieval_bonus,
+        },
+        "asset": {
+            "auto_hash": config.asset.auto_hash,
+            "validate_on_lookup": config.asset.validate_on_lookup,
+        },
+        "sync": {
+            "enabled": config.sync.enabled,
+            "provider": config.sync.provider,
+            "repo_owner": config.sync.repo_owner,
+            "repo_name": config.sync.repo_name,
+            "branch": config.sync.branch,
+            "remote_url": config.sync.remote_url,
+            "auth_mode": config.sync.auth_mode,
+            "oauth_client_id": config.sync.oauth_client_id,
+            "access_token": config.sync.access_token,
+            "token_type": config.sync.token_type,
+            "token_scope": config.sync.token_scope,
+            "github_user": config.sync.github_user,
+            "machine_id": config.sync.machine_id,
+            "sync_mode": config.sync.sync_mode,
+            "sync_interval_minutes": config.sync.sync_interval_minutes,
+            "upload_sessions": config.sync.upload_sessions,
+            "upload_assets": config.sync.upload_assets,
+            "upload_sensitive_sessions": config.sync.upload_sensitive_sessions,
+            "upload_size_limit_mb": config.sync.upload_size_limit_mb,
+            "oversize_action": config.sync.oversize_action,
+            "asset_size_scope": config.sync.asset_size_scope,
+            "compress_upload": config.sync.compress_upload,
+            "chunk_large_files": config.sync.chunk_large_files,
+            "chunk_size_mb": config.sync.chunk_size_mb,
+            "whitelist_first": config.sync.whitelist_first,
+            "skip_blacklist_matches": config.sync.skip_blacklist_matches,
+            "whitelist_patterns": list(config.sync.whitelist_patterns),
+            "blacklist_patterns": list(config.sync.blacklist_patterns),
+            "device_notes": dict(config.sync.device_notes),
+            "worktree_path": config.sync.worktree_path,
+            "last_sync_at": config.sync.last_sync_at,
+            "last_synced_change_id": config.sync.last_synced_change_id,
+        },
+    }
